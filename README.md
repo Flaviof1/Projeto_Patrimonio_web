@@ -145,9 +145,9 @@ A preparação e a restauração criam um backup web antes de atualizar os dados
 ### 1. Importar e preparar os dados
 
 1. Em **Importar cadastro patrimonial**, selecione o CSV exportado pelo SH3. O
-   arquivo deve usar `;` como separador e conter exatamente estes cabeçalhos
+   arquivo deve usar `;` como separador e incluir estes cabeçalhos
    obrigatórios: `Código`, `Plaqueta`, `Descrição`, `Modelo`, `Setor Atual` e
-   `Data`.
+   `Data`. Outras colunas podem estar presentes.
 2. Opcionalmente, importe as planilhas auxiliares:
    - **Bens alienados**: Excel `.xlsx`, com colunas `Plaqueta`,
      `Bem / Descrição` e `Data`.
