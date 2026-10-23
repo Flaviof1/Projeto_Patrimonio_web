@@ -3,3 +3,18 @@ __pycache__/
 .venv/
 dados_web/
 *.py[cod]
+
+# Configuração local e credenciais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Bancos locais e logs
+*.db
+*.sqlite
+*.sqlite3
+*.log
