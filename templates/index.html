@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>Gestão de Inventário Patrimonial</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=11">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Aplicação local</p>
+      <h1>Gestão de Inventário Patrimonial</h1>
+      <p class="subtitle">Conferência por setor, consulta de bens e pendências.</p>
+    </div>
+    <span class="local-pill">Somente neste computador</span>
+  </header>
+
+  <main>
+    <section class="card status-card" aria-labelledby="status-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Base operacional</p>
+          <h2 id="status-title">Situação da base</h2>
+        </div>
+        <span id="base-badge" class="badge badge-muted">Carregando</span>
+      </div>
+      <p id="base-summary" class="summary">Verificando os dados próprios desta versão web…</p>
+      <div id="base-details" class="status-details"></div>
+      <div id="source-details" class="source-list"></div>
+      <div id="photo-details" class="source-list"></div>
+      <p id="base-error" class="error-text" role="alert" hidden></p>
+    </section>
+
+    <section class="grid two-columns">
+      <article class="card">
+        <p class="eyebrow">Entrada de dados</p>
+        <h2>Importar cadastro patrimonial</h2>
+        <p>Selecione o CSV SH3. A validação ocorre antes de substituir qualquer arquivo já importado.</p>
+        <form id="csv-form" class="upload-form">
+          <label for="csv-file">Cadastro patrimonial (CSV)</label>
+          <input id="csv-file" name="arquivo" type="file" accept=".csv,text/csv" required>
+          <button class="button button-primary" type="submit">Validar e importar CSV</button>
+        </form>
+      </article>
+      <article class="card">
+        <p class="eyebrow">Fontes auxiliares opcionais</p>
+        <h2>Preparação SH3</h2>
+        <p>Importe somente as fontes que utiliza. A preparação informa quando alguma delas não foi fornecida.</p>
+        <form id="alienados-form" class="upload-form compact-form">
+          <label for="alienados-file">Bens alienados (Excel)</label>
+          <input id="alienados-file" name="arquivo" type="file" accept=".xlsx" required>
+          <button class="button button-secondary" type="submit">Importar planilha Excel</button>
+        </form>
+        <form id="baixados-form" class="upload-form compact-form">
+          <label for="baixados-file">Bens baixados (Excel)</label>
+          <input id="baixados-file" name="arquivo" type="file" accept=".xlsx" required>
+          <p class="muted">A planilha deve ter uma coluna Plaqueta. Ao preparar os dados, os bens do cadastro listados aqui serão marcados automaticamente como BAIXA.</p>
+          <button class="button button-secondary" type="submit">Importar planilha Excel</button>
+        </form>
+        <button id="prepare-button" class="button button-primary full-width" type="button">Preparar Dados (SH3)</button>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <p class="eyebrow">Controle separado do patrimônio</p>
+        <h2>Itens previstos para leilão</h2>
+        <p>Importe CSV ou Excel (.xlsx) ou adicione um item manualmente. A descrição é obrigatória; plaqueta, setor e data são opcionais. Para procurar bens parecidos, use “Buscar possíveis correspondências” no item desejado. As sugestões precisam ser confirmadas e não alteram status nem dão baixa no patrimônio.</p>
+        <div class="auction-import-forms">
+          <form id="auction-xlsx-form" class="upload-form compact-form">
+            <label for="auction-xlsx-file">Lista de leilão (Excel)</label>
+            <input id="auction-xlsx-file" type="file" accept=".xlsx" required>
+            <button class="button button-secondary" type="submit">Importar Excel</button>
+          </form>
+          <form id="auction-csv-form" class="upload-form compact-form">
+            <label for="auction-csv-file">Lista de leilão (CSV)</label>
+            <input id="auction-csv-file" type="file" accept=".csv,text/csv" required>
+            <button class="button button-secondary" type="submit">Importar CSV</button>
+          </form>
+        </div>
+        <form id="auction-manual-form" class="filter-grid auction-manual-form">
+          <div>
+            <label for="auction-description">Descrição do item</label>
+            <input id="auction-description" maxlength="500" required>
+          </div>
+          <div>
+            <label for="auction-plaqueta">Plaqueta informada (opcional)</label>
+            <input id="auction-plaqueta" maxlength="100">
+          </div>
+          <div>
+            <label for="auction-sector">Setor (opcional)</label>
+            <select id="auction-sector">
+              <option value="">Sem setor informado</option>
+            </select>
+          </div>
+          <div>
+            <label for="auction-date">Data (opcional)</label>
+            <input id="auction-date" type="date">
+          </div>
+          <button class="button button-primary" type="submit">Adicionar item à lista</button>
+        </form>
+        <div id="auction-summary" class="muted"></div>
+        <div id="auction-list" class="auction-list"></div>
+      </article>
+    </section>
+
+    <section class="grid sector-section">
+      <article class="card conference-card">
+        <p class="eyebrow">Conferência</p>
+        <h2>Conferência por setor</h2>
+        <p>Selecione um setor para revisar os bens, registrar status, estado e observações.</p>
+        <form id="sector-form" class="inline-form">
+          <label class="visually-hidden" for="sector-select">Setor</label>
+          <select id="sector-select">
+            <option value="">Selecione um setor</option>
+          </select>
+          <button id="start-sector" class="button button-primary" type="submit">Iniciar</button>
+        </form>
+        <div id="conference-summary" class="muted"></div>
+        <div id="conference-table" class="table-wrap conference-table"></div>
+        <div id="conference-pagination" class="table-pagination"></div>
+        <button id="add-item-button" class="button button-secondary" type="button" hidden>Incluir bem localizado sem plaqueta</button>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <p class="eyebrow">Consulta</p>
+        <h2>Busca geral de bens</h2>
+        <form id="search-form">
+          <label for="search-term">Texto para buscar</label>
+          <div class="inline-form">
+            <input id="search-term" type="search" placeholder="Código, plaqueta, descrição, observação…">
+            <button class="button button-primary" type="submit">Buscar</button>
+            <button id="clear-search" class="button button-muted" type="button">Limpar filtros</button>
+          </div>
+          <div class="filter-grid">
+            <div>
+              <label for="search-sectors">Setores</label>
+              <select id="search-sectors" multiple size="4"></select>
+            </div>
+            <div>
+              <label for="search-status">Status</label>
+              <select id="search-status" multiple size="4">
+                <option>PEND</option><option>OK</option><option>NAO_EMPLAC</option>
+                <option>SEM_PLAQ</option><option>DIVERG</option><option>N_LOC</option>
+                <option>ALIEN</option><option>BAIXA</option>
+              </select>
+            </div>
+          </div>
+          <div class="filter-grid filter-bottom">
+            <div>
+              <label for="search-plaqueta">Plaqueta</label>
+              <select id="search-plaqueta">
+                <option value="">Todas</option>
+                <option value="Com plaqueta">Com plaqueta</option>
+                <option value="Sem plaqueta">Sem plaqueta</option>
+              </select>
+            </div>
+            <div>
+              <label for="search-photo">Foto</label>
+              <select id="search-photo">
+                <option value="">Todos</option><option value="Com foto">Com foto</option>
+                <option value="Sem foto">Sem foto</option>
+              </select>
+            </div>
+            <div>
+              <label for="date-from">Data inicial</label>
+              <input id="date-from" type="date">
+            </div>
+            <div>
+              <label for="date-to">Data final</label>
+              <input id="date-to" type="date">
+            </div>
+          </div>
+          <div id="search-active-filters" class="filter-selection-summary" aria-live="polite"></div>
+        </form>
+        <div id="search-summary" class="muted"></div>
+        <div class="search-actions">
+          <button id="search-excel-button" class="button button-secondary" type="button" disabled>Gerar relatório Excel</button>
+          <button id="search-pdf-button" class="button button-secondary" type="button" disabled>Gerar relatório PDF</button>
+          <div id="search-report-result" class="result-message"></div>
+        </div>
+        <div id="search-table" class="table-wrap"></div>
+        <div id="search-pagination" class="table-pagination"></div>
+      </article>
+    </section>
+
+    <section class="grid two-columns">
+      <article class="card">
+        <p class="eyebrow">Relatórios</p>
+        <h2>Relatório de pendências</h2>
+        <p>Gera o arquivo Excel gerencial com resumos por setor, classificação e abas de pendências.</p>
+        <button id="report-button" class="button button-warning" type="button">Gerar relatório</button>
+        <div id="report-result" class="result-message"></div>
+      </article>
+      <article class="card">
+        <p class="eyebrow">Proteção dos dados</p>
+        <h2>Backup e restauração</h2>
+        <p>Os backups incluem as entradas, planilhas de trabalho e relatórios desta versão web.</p>
+        <button id="backup-button" class="button button-secondary" type="button">Criar backup agora</button>
+        <div id="backup-list" class="backup-list"></div>
+      </article>
+    </section>
+    <div id="notifications" class="notifications" role="status" aria-live="polite"></div>
+  </main>
+
+  <dialog id="edit-dialog" class="modal">
+    <form id="edit-form" method="dialog">
+      <div class="section-heading">
+        <div><p class="eyebrow">Conferência</p><h2>Editar item</h2></div>
+        <button class="icon-button" type="button" data-close="edit-dialog" aria-label="Fechar">×</button>
+      </div>
+      <p id="edit-identification" class="muted"></p>
+      <input id="edit-index" type="hidden">
+      <div id="description-field">
+        <label for="edit-description">Descrição</label>
+        <input id="edit-description" maxlength="500">
+      </div>
+      <div class="filter-grid">
+        <div>
+          <label for="edit-status">Status</label>
+          <select id="edit-status" required>
+            <option>PEND</option><option>OK</option><option>NAO_EMPLAC</option>
+            <option>SEM_PLAQ</option><option>DIVERG</option><option>N_LOC</option>
+            <option>ALIEN</option><option>BAIXA</option>
+          </select>
+        </div>
+        <div>
+          <label for="edit-state">Estado de conservação</label>
+          <select id="edit-state" required>
+            <option>EM USO</option><option>DESUSO</option><option>INSERVIVEL</option>
+            <option>NAO_APLICAVEL</option>
+          </select>
+        </div>
+      </div>
+      <label for="edit-observation">Observação</label>
+      <textarea id="edit-observation" rows="3" maxlength="2000"></textarea>
+      <div id="photo-current" class="photo-current"></div>
+      <label for="edit-photo">Anexar ou trocar foto</label>
+      <input id="edit-photo" type="file" accept=".jpg,.jpeg,.png,.bmp,.gif,.webp,image/*">
+      <p class="muted">Ao salvar a foto, as alterações de status, estado e observação também serão gravadas.</p>
+      <div class="modal-actions">
+        <button class="button button-primary" type="submit">Salvar conferência</button>
+        <button id="save-photo" class="button button-secondary" type="button">Salvar foto e alterações</button>
+        <button class="button button-muted" type="button" data-close="edit-dialog">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="add-dialog" class="modal">
+    <form id="add-form" method="dialog">
+      <div class="section-heading">
+        <div><p class="eyebrow">Inclusão manual</p><h2>Bem localizado sem plaqueta</h2></div>
+        <button class="icon-button" type="button" data-close="add-dialog" aria-label="Fechar">×</button>
+      </div>
+      <label for="add-sector">Setor</label>
+      <select id="add-sector" required></select>
+      <div class="filter-grid">
+        <div>
+          <label for="add-status">Status</label>
+          <select id="add-status">
+            <option>DIVERG</option><option>PEND</option><option>OK</option>
+            <option>NAO_EMPLAC</option><option>SEM_PLAQ</option><option>N_LOC</option>
+            <option>ALIEN</option><option>BAIXA</option>
+          </select>
+        </div>
+        <div>
+          <label for="add-state">Estado</label>
+          <select id="add-state">
+            <option>EM USO</option><option>DESUSO</option><option>INSERVIVEL</option>
+            <option>NAO_APLICAVEL</option>
+          </select>
+        </div>
+      </div>
+      <label for="add-description">Descrição</label>
+      <input id="add-description" maxlength="500" required>
+      <label for="add-quantity">Quantidade (1 a 999)</label>
+      <input id="add-quantity" type="number" min="1" max="999" value="1" required>
+      <label for="add-observation">Observação</label>
+      <textarea id="add-observation" rows="3" maxlength="2000">ITEM LOCALIZADO SEM PLAQUETA - PENDENTE DE CADASTRO</textarea>
+      <div class="modal-actions">
+        <button class="button button-primary" type="submit">Incluir item(ns)</button>
+        <button class="button button-muted" type="button" data-close="add-dialog">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="{{ url_for('static', filename='app.js') }}?v=16" defer></script>
+</body>
+</html>

@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Manual de operação do Sistema Web de Gestão Patrimonial.">
+  <title>Manual do Sistema - Gestão Patrimonial</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #182230;
+      --muted: #526174;
+      --brand: #1e3a8a;
+      --brand-light: #eaf0ff;
+      --line: #d7dfeb;
+      --warning: #fff4d6;
+      --warning-line: #d99b16;
+      --surface: #fff;
+      --background: #f4f7fb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--ink);
+      font: 16px/1.65 "Segoe UI", Arial, sans-serif;
+    }
+    header {
+      padding: 42px max(22px, calc((100% - 1040px) / 2));
+      background: var(--brand);
+      color: #fff;
+    }
+    header p { max-width: 780px; margin-bottom: 0; color: #e0e8ff; }
+    h1 { margin: 0; font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; }
+    main { max-width: 1040px; margin: 28px auto; padding: 0 20px 48px; }
+    nav, article, .callout {
+      margin: 18px 0;
+      padding: 22px 26px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    nav h2, article h2 { margin-top: 0; color: var(--brand); }
+    nav ul { columns: 2; padding-left: 20px; }
+    a { color: #174ea6; }
+    .callout {
+      border-left: 5px solid var(--warning-line);
+      background: var(--warning);
+    }
+    .callout strong { display: block; margin-bottom: 5px; }
+    .steps { padding-left: 24px; }
+    .steps li { margin: 9px 0; }
+    code, kbd {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #edf1f7;
+      font-family: Consolas, "Courier New", monospace;
+      overflow-wrap: anywhere;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 9px 10px; border: 1px solid var(--line); text-align: left; }
+    th { background: var(--brand-light); }
+    .small { color: var(--muted); font-size: .94rem; }
+    footer { padding: 18px; color: var(--muted); text-align: center; }
+    @media (max-width: 620px) {
+      nav, article, .callout { padding: 18px; }
+      nav ul { columns: 1; }
+      table { font-size: .9rem; }
+    }
+    @media print {
+      body { background: #fff; font-size: 11pt; }
+      header { padding: 20px 0; background: #fff; color: var(--ink); }
+      header p { color: var(--muted); }
+      main { max-width: none; margin: 0; padding: 0; }
+      nav, article, .callout { break-inside: avoid; box-shadow: none; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Manual do Sistema Web de Gestão Patrimonial</h1>
+    <p>Guia de acesso, preparação da base, auditoria por setor, pesquisa, fotos,
+      relatórios e proteção dos dados.</p>
+  </header>
+  <main>
+    <nav aria-label="Sumário">
+      <h2>Sumário</h2>
+      <ul>
+        <li><a href="#visao-geral">Visão geral</a></li>
+        <li><a href="#acesso">Como acessar</a></li>
+        <li><a href="#ligar-sistema">Ligar o sistema depois de reiniciar</a></li>
+        <li><a href="#preparar">Preparar ou atualizar a base</a></li>
+        <li><a href="#auditoria">Auditar por setor</a></li>
+        <li><a href="#busca">Pesquisar e filtrar</a></li>
+        <li><a href="#status">Entender os status</a></li>
+        <li><a href="#fotos">Fotos</a></li>
+        <li><a href="#relatorios">Relatórios</a></li>
+        <li><a href="#backup">Backup e restauração</a></li>
+        <li><a href="#dados">Onde ficam os dados</a></li>
+        <li><a href="#problemas">Problemas comuns</a></li>
+        <li><a href="#seguranca">Segurança e boas práticas</a></li>
+      </ul>
+    </nav>
+
+    <aside class="callout">
+      <strong>Importante: o aplicativo não tem login próprio.</strong>
+      Quem consegue abrir o endereço do sistema pode consultar, editar, importar,
+      gerar e baixar dados. Para acesso remoto, mantenha a rede Tailscale restrita
+      a dispositivos e pessoas de confiança. Nunca encaminhe a porta do app no roteador.
+    </aside>
+
+    <article id="visao-geral">
+      <h2>1. Visão geral</h2>
+      <p>O sistema organiza a conferência patrimonial por setor. A tela inicial
+      apresenta a situação da base: origem ativa (MySQL ou planilha), total de
+      bens, setores, quantidade por status, data da última preparação, fontes
+      importadas e disponibilidade das fotos.</p>
+      <p>No ambiente atual, o MySQL local do PC servidor é a fonte ativa. As
+      planilhas de conferência são mantidas como espelhos para compatibilidade e
+      recuperação. Os outros aparelhos acessam o Flask pelo navegador; não se
+      conectam diretamente ao MySQL.</p>
+    </article>
+
+    <article id="acesso">
+      <h2>2. Como acessar</h2>
+      <h3>No próprio computador</h3>
+      <p>Abra <code>http://127.0.0.1:8765</code>.</p>
+      <h3>Na mesma rede Wi-Fi ou cabeada</h3>
+      <p>Use o endereço IPv4 do PC servidor, mostrado no terminal ao iniciar o
+      Flask, seguido de <code>:8765</code>. Exemplo: <code>http://192.168.1.20:8765</code>.
+      Os aparelhos precisam estar na mesma rede e o firewall do Windows pode
+      solicitar autorização para rede privada.</p>
+      <h3>De outra rede usando Tailscale</h3>
+      <ol class="steps">
+        <li>Instale o aplicativo oficial do Tailscale no PC servidor e no aparelho
+        de auditoria e entre na mesma rede/conta Tailscale.</li>
+        <li>No painel <a href="https://login.tailscale.com/admin/machines">Máquinas
+        do Tailscale</a>, confirme que PC e aparelho aparecem conectados.</li>
+        <li>Copie o endereço Tailscale do <strong>PC servidor</strong> (um IPv4
+        que normalmente começa com <code>100.</code>), não o endereço do iPhone.</li>
+        <li>Com Tailscale conectado no iPhone, abra no Safari
+        <code>http://IP-DO-PC:8765</code>. O endereço verificado neste PC em
+        22/10/2026 era <code>http://100.85.183.31:8765</code>. O IP do Tailscale
+        normalmente permanece o mesmo depois de desligar e ligar o PC.</li>
+      </ol>
+      <p>O PC deve permanecer ligado e sem suspensão. MySQL e Flask também devem
+      continuar ativos. Não é necessário abrir ou encaminhar a porta no roteador.
+      Para encerrar o Flask, volte ao terminal do servidor e pressione
+      <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+      <p>O endereço pode mudar se o PC for removido da rede Tailscale e adicionado
+      novamente, se o Tailscale for redefinido/reinstalado e perder o registro do
+      dispositivo, se o disco for apagado ou se um administrador mudar o IP
+      manualmente. Se não conectar, confira o endereço do PC em
+      <strong>Máquinas</strong> no painel Tailscale.</p>
+    </article>
+
+    <article id="ligar-sistema">
+      <h2>3. Passo a passo: ligar o sistema depois de reiniciar o PC</h2>
+      <p>Há duas coisas diferentes: o <strong>endereço Tailscale do PC</strong>
+      normalmente continua o mesmo; o <strong>programa Flask</strong> precisa
+      ser iniciado novamente depois que o Windows reinicia. Faça estes passos
+      no PC servidor sempre que quiser usar o sistema. O VS Code não é
+      obrigatório: ele é apenas um editor que também oferece uma janela de
+      terminal. Você pode iniciar o servidor pelo terminal do VS Code ou pelo
+      PowerShell do próprio Windows.</p>
+      <ol class="steps">
+        <li><strong>Ligue o PC e espere o Windows terminar de carregar.</strong>
+        Não deixe o computador dormir durante a auditoria remota.</li>
+        <li><strong>Confira o Tailscale no PC.</strong> Perto do relógio do
+        Windows, procure o ícone do Tailscale. Abra-o e confirme que está
+        conectado. Se pedir login, entre na mesma conta usada no iPhone.</li>
+        <li><strong>Confira o MySQL.</strong> Ele está configurado para iniciar
+        automaticamente neste PC. Se o aplicativo disser que não consegue
+        conectar ao banco, pressione a tecla Windows, digite
+        <strong>Serviços</strong>, abra o aplicativo Serviços, procure
+        <code>MySQL80</code> e confira se o estado é “Em execução”. Se estiver
+        parado, clique com o botão direito em <code>MySQL80</code> e escolha
+        <strong>Iniciar</strong>.</li>
+        <li><strong>Escolha onde abrir o terminal.</strong>
+          <ul>
+            <li><strong>Opção A — VS Code:</strong> abra a pasta
+            <code>C:\Users\Flávio\Documents\Projeto_Patrimonio_web</code> no VS
+            Code e escolha <strong>Terminal → Novo Terminal</strong>.</li>
+            <li><strong>Opção B — PowerShell do Windows:</strong> abra o menu
+            Iniciar, digite <strong>PowerShell</strong> e abra o aplicativo
+            <strong>Windows PowerShell</strong>. Não é necessário abrir o VS Code.</li>
+            <li><strong>Opção C — Prompt de Comando (CMD):</strong> abra o menu
+            Iniciar, digite <strong>Prompt de Comando</strong> ou
+            <strong>cmd</strong> e abra o aplicativo.</li>
+          </ul>
+        </li>
+        <li><strong>Digite os comandos do terminal que escolheu.</strong>
+        Escolha apenas um dos blocos abaixo; não misture comandos de PowerShell
+        com comandos de CMD.
+        <p><strong>PowerShell do Windows:</strong> copie cada linha e pressione
+        Enter:</p>
+          <pre><code>$env:PATRIMONIO_STORAGE = "mysql"
+Set-Location "C:\Users\Flávio\Documents\Projeto_Patrimonio_web"
+.\.venv\Scripts\python.exe app.py</code></pre>
+        <p><strong>Prompt de Comando (CMD):</strong> copie cada linha e pressione
+        Enter:</p>
+          <pre><code>cd /d "C:\Users\Flávio\Documents\Projeto_Patrimonio_web"
+set PATRIMONIO_STORAGE=mysql
+.\.venv\Scripts\python.exe app.py</code></pre>
+        <p><strong>Terminal do VS Code:</strong> se ele já estiver aberto na
+        pasta do projeto, veja o nome do terminal. Se disser PowerShell, use o
+        bloco PowerShell; se disser Command Prompt ou CMD, use o bloco CMD.</p>
+        Se o terminal já estiver na pasta, não precisa executar o comando que
+        muda de pasta (PowerShell: <code>Set-Location</code>; CMD:
+        <code>cd /d</code>).
+        </li>
+        <li><strong>Digite a senha MySQL do aplicativo quando for solicitada.</strong>
+        A senha não aparecerá enquanto você digita; isso é normal. Pressione
+        Enter depois de digitá-la. Não cole nem compartilhe a senha em mensagens
+        ou arquivos.</li>
+        <li><strong>Deixe o terminal e o PC ligados.</strong> O sistema está
+        iniciado quando o terminal mostra os endereços de acesso e não voltou
+        para a linha de comando. Não feche a janela do terminal e não pressione
+        <kbd>Ctrl</kbd>+<kbd>C</kbd> enquanto estiver usando o sistema. Você pode
+        minimizar a janela.</li>
+        <li><strong>No iPhone</strong>, ligue o Tailscale e confirme que está
+        conectado. Abra o Safari e digite
+        <code>http://100.85.183.31:8765</code>. Este é o endereço atual
+        confirmado para este PC; se algum dia não funcionar, confira o endereço
+        do PC em <strong>Máquinas</strong> no painel Tailscale.</li>
+      </ol>
+      <aside class="callout">
+        <strong>Resumo fácil de lembrar</strong>
+        Depois de reiniciar o PC: Tailscale conectado + MySQL em execução +
+        Flask iniciado no terminal (VS Code, PowerShell ou CMD) + Tailscale
+        ligado no iPhone.
+        O IP Tailscale normalmente não muda; o servidor Flask é que precisa ser
+        iniciado novamente.
+      </aside>
+      <p>Para desligar o servidor de forma normal, volte à mesma janela do
+      terminal e pressione
+      <kbd>Ctrl</kbd>+<kbd>C</kbd>. Isso encerra o Flask, mas não apaga os dados.
+      Se desligar ou reiniciar o Windows sem esse passo, o Flask também para e
+      precisará ser iniciado novamente na próxima vez.</p>
+    </article>
+
+    <article id="preparar">
+      <h2>4. Preparar ou atualizar a base</h2>
+      <ol class="steps">
+        <li>Exporte do SH3 o cadastro patrimonial no formato CSV e escolha
+        <strong>Validar e importar CSV</strong>. A validação ocorre antes de
+        substituir o arquivo atual. Se já existir uma fonte, confirme a
+        substituição somente se o arquivo novo for o correto.</li>
+        <li>Quando disponíveis, importe as planilhas Excel de bens alienados e
+        bens baixados. A planilha de baixados precisa ter uma coluna chamada
+        <code>Plaqueta</code>. Essas planilhas são auxiliares; o cadastro CSV
+        continua sendo a base patrimonial.</li>
+        <li>Clique em <strong>Preparar Dados (SH3)</strong>. A rotina cruza as
+        plaquetas, atualiza a conferência e informa totais e avisos. A lista de
+        baixados marca como <code>BAIXA</code> os bens encontrados; se um item
+        também estiver na lista de alienados, prevalece <code>ALIEN</code>.</li>
+        <li>Confira os avisos e o painel de situação antes de iniciar a auditoria.</li>
+      </ol>
+      <p>Uma preparação pode reorganizar os registros com os dados mais recentes
+      das fontes. Faça um backup e evite executá-la enquanto outras pessoas
+      estiverem alterando itens.</p>
+    </article>
+
+    <article id="auditoria">
+      <h2>5. Auditar por setor</h2>
+      <ol class="steps">
+        <li>Escolha o setor no campo <strong>Conferência por setor</strong> e
+        clique em <strong>Iniciar</strong>.</li>
+        <li>Revise a identificação e os dados exibidos. Abra <strong>Editar</strong>
+        para registrar status, estado de conservação e observação.</li>
+        <li>Salve a conferência. Para trocar ou anexar uma foto, selecione a
+        imagem e use <strong>Salvar foto e alterações</strong>; esse comando
+        também salva status, estado, observação e, quando permitido, descrição.</li>
+        <li>Se encontrar um bem físico ainda não cadastrado e sem plaqueta,
+        clique em <strong>Incluir bem localizado sem plaqueta</strong>, informe
+        setor, descrição, quantidade, estado e observação. O sistema gera um
+        identificador provisório individual; ele não cria uma plaqueta oficial.</li>
+      </ol>
+      <p>As descrições de registros patrimoniais importados não são editáveis.
+      Registros manuais sem plaqueta podem ter descrição corrigida; registros
+      oriundos de planilhas auxiliares preservam a descrição de origem.</p>
+      <p>O servidor atende uma solicitação por vez. Evite que duas pessoas
+      editem o mesmo item simultaneamente e aguarde a mensagem de confirmação
+      antes de fechar a página.</p>
+    </article>
+
+    <article id="busca">
+      <h2>6. Pesquisar e filtrar</h2>
+      <p>Na <strong>Busca geral de bens</strong>, os filtros podem ser combinados:</p>
+      <ul>
+        <li><strong>Texto:</strong> procura em campos do registro, como código,
+        plaqueta, descrição e observação.</li>
+        <li><strong>Setores:</strong> selecione um ou mais; em uma lista múltipla,
+        use <kbd>Ctrl</kbd> (Windows) ou toque conforme o navegador para selecionar
+        várias opções.</li>
+        <li><strong>Status:</strong> permite selecionar um ou mais status.</li>
+        <li><strong>Plaqueta:</strong> escolha Todas, Com plaqueta ou Sem plaqueta.
+        Para localizar itens sem identificação numérica, escolha
+        <strong>Sem plaqueta</strong>.</li>
+        <li><strong>Foto:</strong> filtra itens com ou sem referência de imagem.</li>
+        <li><strong>Período:</strong> limita pelos campos de data disponíveis.</li>
+      </ul>
+      <p>Clique em <strong>Buscar</strong> para pesquisar pelo texto. Os filtros
+      Plaqueta e Foto são aplicados automaticamente quando alterados. Use
+      <strong>Limpar filtros</strong> para apagar os critérios e pesquisar sem
+      restrições. Os botões de relatório exportam os resultados encontrados,
+      respeitando os filtros atuais.</p>
+      <p>O relatório gerencial é diferente: ele resume toda a base, não apenas os
+      resultados da Busca Geral.</p>
+    </article>
+
+    <article id="status">
+      <h2>7. Entender os status</h2>
+      <p>Os status registram a classificação da conferência. A convenção final
+      deve seguir o procedimento patrimonial do órgão.</p>
+      <table>
+        <thead><tr><th>Status</th><th>Uso no sistema</th></tr></thead>
+        <tbody>
+          <tr><td><code>PEND</code></td><td>Aguardando conferência.</td></tr>
+          <tr><td><code>OK</code></td><td>Conferido sem divergência registrada.</td></tr>
+          <tr><td><code>DIVERG</code></td><td>Há divergência ou pendência a verificar; pode incluir bem localizado sem plaqueta.</td></tr>
+          <tr><td><code>N_LOC</code></td><td>Bem não localizado na conferência.</td></tr>
+          <tr><td><code>SEM_PLAQ</code></td><td>Classificação disponível para item sem plaqueta.</td></tr>
+          <tr><td><code>NAO_EMPLAC</code></td><td>Classificação disponível para item não emplacado.</td></tr>
+          <tr><td><code>ALIEN</code></td><td>Bem marcado como alienado pela fonte auxiliar.</td></tr>
+          <tr><td><code>BAIXA</code></td><td>Bem marcado como baixado pela fonte auxiliar.</td></tr>
+        </tbody>
+      </table>
+      <p>Um registro sem plaqueta não necessariamente está com status
+      <code>SEM_PLAQ</code>. Alguns achados ficam como <code>DIVERG</code> e
+      trazem a observação “ITEM LOCALIZADO SEM PLAQUETA - PENDENTE DE CADASTRO”.
+      Por isso, use o filtro próprio <strong>Plaqueta → Sem plaqueta</strong>
+      para encontrar todos, independentemente do status. Para
+      <code>N_LOC</code> e <code>BAIXA</code>, o sistema define o estado como
+      <code>NAO_APLICAVEL</code>.</p>
+    </article>
+
+    <article id="fotos">
+      <h2>8. Fotos dos bens</h2>
+      <p>As imagens são anexadas individualmente pela edição de cada bem. O
+      sistema não oferece importação de fotos em ZIP. Formatos permitidos e
+      limites são validados pelo aplicativo antes de gravar.</p>
+      <p>As miniaturas aparecem nas tabelas quando existe um arquivo associado.
+      Clique na miniatura para abrir a imagem. Se a referência constar no registro
+      mas o arquivo não estiver no servidor, a tela indica que a foto está
+      indisponível; anexe novamente a imagem correta ao bem correspondente.</p>
+    </article>
+
+    <article id="relatorios">
+      <h2>9. Relatórios</h2>
+      <ul>
+        <li><strong>Relatório de pendências:</strong> gera uma planilha gerencial
+        com resumo geral, resumo por setor, detalhamento completo e abas
+        específicas de conferidos, baixados, pendências, divergências,
+        localizados sem plaqueta e não localizados.</li>
+        <li><strong>Relatórios da Busca Geral:</strong> exportam a seleção atual
+        em Excel ou PDF, com os filtros aplicados.</li>
+      </ul>
+      <p>Os relatórios gerados ficam na pasta de relatórios do servidor. Baixe-os
+      pela própria interface quando precisar guardar uma cópia fora do PC.</p>
+    </article>
+
+    <article id="backup">
+      <h2>10. Backup e restauração</h2>
+      <ol class="steps">
+        <li>Em <strong>Backup e restauração</strong>, clique em
+        <strong>Criar backup agora</strong>. O ZIP reúne as entradas, planilhas
+        de trabalho, fotos disponíveis, backups e relatórios desta versão web.</li>
+        <li>Baixe o ZIP para um local seguro, separado do computador servidor.
+        Um backup armazenado somente no próprio PC não protege contra falha ou
+        perda desse computador.</li>
+        <li>Para recuperar, selecione <strong>Restaurar</strong> no backup
+        desejado e confirme. A aplicação cria outro backup do estado atual antes
+        de substituir os dados web.</li>
+      </ol>
+      <p>Somente backups ZIP criados por esta versão web são compatíveis. O ZIP
+      guarda os arquivos de entrada, as planilhas e fotos de trabalho e os
+      relatórios; os outros ZIPs de backup não são recopiados dentro dele. No
+      modo MySQL, a restauração também sincroniza a tabela ativa com a planilha
+      restaurada. Não extraia um backup por cima das pastas enquanto o sistema
+      estiver em uso.</p>
+    </article>
+
+    <article id="dados">
+      <h2>11. Onde ficam os dados</h2>
+      <ul>
+        <li><code>dados_web\dados_entrada</code>: CSV patrimonial e arquivos
+        auxiliares importados.</li>
+        <li><code>dados_web\dados_trabalho</code>: planilhas de conferência,
+        histórico, versões e pasta <code>Fotos</code>.</li>
+        <li><code>dados_web\relatorios</code>: relatórios gerados.</li>
+        <li><code>dados_web\backups</code>: backups ZIP da aplicação web.</li>
+        <li>MySQL local: banco <code>patrimonio_web</code>, tabela
+        <code>patrimonio_itens</code>.</li>
+      </ul>
+      <p>Esses dados são independentes da pasta do aplicativo desktop. A primeira
+      execução não importa arquivos do desktop automaticamente.</p>
+    </article>
+
+    <article id="problemas">
+      <h2>12. Problemas comuns</h2>
+      <ul>
+        <li><strong>A página não abre:</strong> confirme que o PC não suspendeu,
+        que o serviço MySQL está ativo, que o terminal do Flask continua aberto
+        e que o endereço inclui <code>:8765</code>.</li>
+        <li><strong>Acesso remoto falha:</strong> confirme que os dois dispositivos
+        aparecem conectados no Tailscale e use o IP Tailscale do PC servidor.
+        Endereço local como <code>192.168.x.x</code> pode não funcionar fora da
+        rede doméstica.</li>
+        <li><strong>O painel diz que não há dados:</strong> confira no painel se
+        a fonte está importada e se o MySQL está ativo. Não reimporte nem
+        prepare dados para tentar corrigir sem primeiro verificar a fonte correta.</li>
+        <li><strong>Consulta pela extensão Database falha:</strong> a extensão
+        Database do VS Code é separada do Flask. Se aparecer “No database
+        selected”, selecione o schema <code>patrimonio_web</code> ou qualifique
+        a tabela; isso não significa necessariamente que o site caiu.</li>
+        <li><strong>Fotos indisponíveis:</strong> o banco pode manter o nome da
+        referência sem o arquivo de imagem. Reanexe a imagem original ao bem
+        certo; não associe arquivos por tentativa.</li>
+      </ul>
+    </article>
+
+    <article id="seguranca">
+      <h2>13. Segurança e boas práticas</h2>
+      <ul>
+        <li>Restrinja a rede Tailscale a dispositivos e usuários autorizados:
+        dentro do app, todos têm poder de edição, importação, restauração e
+        download.</li>
+        <li>Não compartilhe o endereço Tailscale publicamente, não encaminhe a
+        porta do app no roteador e não use o serviço em uma rede pública aberta.</li>
+        <li>Crie backups antes de operações importantes e mantenha uma cópia
+        baixada fora do PC servidor.</li>
+        <li>Evite alterações simultâneas no mesmo item. Aguarde a confirmação
+        após cada salvamento.</li>
+        <li>Não execute testes automatizados apontando para a pasta de dados
+        operacional. A suíte deve usar seu diretório temporário de testes.</li>
+        <li>CSV, planilhas, fotos e relatórios contêm informações patrimoniais:
+        armazene e compartilhe apenas em locais autorizados.</li>
+      </ul>
+    </article>
+  </main>
+  <footer>Manual do Sistema Web de Gestão Patrimonial · atualizado em 22/10/2026</footer>
+</body>
+</html>
