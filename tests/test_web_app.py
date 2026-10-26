@@ -621,6 +621,54 @@ def test_lista_leilao_importa_excel_e_inclui_item_manual(client):
     assert all(item['situacao'] == 'PENDENTE_IDENTIFICACAO' for item in itens)
 
 
+def test_item_leilao_pode_ser_editado_e_excluido_sem_alterar_base(client, monkeypatch):
+    base = pd.DataFrame([{
+        'Plaqueta': '000123',
+        'Descrição': 'Mesa',
+        'Setor Atual': 'Setor A',
+        'STATUS': 'PEND',
+    }])
+    monkeypatch.setattr(app_module, '_carregar_base', lambda: base)
+
+    incluido = post(
+        client,
+        '/api/leilao/manual',
+        json={'descricao': 'Mesa antiga', 'setor': 'Setor A'},
+    )
+    item_id = incluido.get_json()['item']['id']
+    vinculo = post(
+        client,
+        f'/api/leilao/{item_id}/vincular',
+        json={'plaqueta': '000123'},
+    )
+    assert vinculo.status_code == 200
+
+    edicao = post(
+        client,
+        f'/api/leilao/{item_id}/editar',
+        json={
+            'descricao': 'Mesa de reunião',
+            'plaqueta': '123',
+            'setor': 'Setor A',
+            'data': '2020-01-01',
+        },
+    )
+    assert edicao.status_code == 200, edicao.get_json()
+    item_atualizado = client.get('/api/leilao').get_json()['itens'][0]
+    assert item_atualizado['descricao'] == 'Mesa de reunião'
+    assert item_atualizado['plaqueta_informada'] == '123'
+    assert item_atualizado['data'] == '2020-01-01'
+    assert item_atualizado['situacao'] == 'IDENTIFICADO'
+    assert item_atualizado['plaqueta_vinculada'] == '000123'
+    assert base.iloc[0]['STATUS'] == 'PEND'
+
+    exclusao = post(client, f'/api/leilao/{item_id}/excluir', json={})
+    assert exclusao.status_code == 200, exclusao.get_json()
+    assert client.get('/api/leilao').get_json()['itens'] == []
+    nao_encontrado = post(client, f'/api/leilao/{item_id}/excluir', json={})
+    assert nao_encontrado.status_code == 404
+
+
 def test_rota_entrega_miniatura_redimensionada(client):
     FOTOS_DIR.mkdir(parents=True, exist_ok=True)
     caminho = FOTOS_DIR / 'miniatura_teste.png'

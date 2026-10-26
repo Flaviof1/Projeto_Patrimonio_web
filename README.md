@@ -224,7 +224,9 @@ por similaridade de descrição e considera plaqueta e setor quando informados.
 Uma sugestão é apenas uma pista: confira os dados e confirme o vínculo
 manualmente. O vínculo não altera a plaqueta, o estado ou o status patrimonial,
 e não realiza baixa. O resultado do leilão e a baixa patrimonial não são
-registrados por esse controle.
+registrados por esse controle. Use **Editar** para corrigir os dados do item
+ou **Excluir** para removê-lo da lista; a exclusão pede confirmação e não
+remove nem altera o bem patrimonial vinculado.
 
 ## Status e estado de conservação
 

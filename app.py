@@ -1128,6 +1128,63 @@ def create_app():
             abort(500, description=f'Não foi possível salvar o item: {error}')
         return jsonify(mensagem='Item adicionado como pendente de identificação.', item=item)
 
+    @aplicacao.post('/api/leilao/<identificador>/editar')
+    @_csrf_required
+    def editar_item_leilao(identificador):
+        alteracoes = request.get_json(silent=True)
+        if not isinstance(alteracoes, dict):
+            abort(400, description='Dados de edição do item para leilão inválidos.')
+        descricao = str(alteracoes.get('descricao', '') or '').strip()
+        if not descricao or len(descricao) > 500:
+            abort(400, description='Informe uma descrição de até 500 caracteres.')
+        plaqueta = str(alteracoes.get('plaqueta', '') or '').strip()
+        setor = str(alteracoes.get('setor', '') or '').strip()
+        data_item = str(alteracoes.get('data', '') or '').strip()
+        if len(plaqueta) > 100 or len(setor) > 255 or len(data_item) > 50:
+            abort(400, description='Plaqueta, setor ou data excede o limite permitido.')
+        try:
+            itens = _carregar_itens_leilao()
+        except ValueError as error:
+            abort(409, description=str(error))
+        item = next((registro for registro in itens if registro.get('id') == identificador), None)
+        if item is None:
+            abort(404, description='Item da lista de leilão não encontrado.')
+        if setor != str(item.get('setor', '') or '').strip():
+            try:
+                base = _carregar_base()
+            except ValueError as error:
+                abort(409, description=str(error))
+            if setor and (base is None or setor not in _setores(base)):
+                abort(400, description='Selecione um setor existente.')
+        item.update({
+            'descricao': descricao,
+            'plaqueta_informada': plaqueta,
+            'setor': setor,
+            'data': data_item,
+        })
+        try:
+            _salvar_itens_leilao(itens)
+        except OSError as error:
+            abort(500, description=f'Não foi possível salvar as alterações: {error}')
+        return jsonify(mensagem='Item da lista de leilão atualizado.', item=item)
+
+    @aplicacao.post('/api/leilao/<identificador>/excluir')
+    @_csrf_required
+    def excluir_item_leilao(identificador):
+        try:
+            itens = _carregar_itens_leilao()
+        except ValueError as error:
+            abort(409, description=str(error))
+        item = next((registro for registro in itens if registro.get('id') == identificador), None)
+        if item is None:
+            abort(404, description='Item da lista de leilão não encontrado.')
+        itens.remove(item)
+        try:
+            _salvar_itens_leilao(itens)
+        except OSError as error:
+            abort(500, description=f'Não foi possível excluir o item: {error}')
+        return jsonify(mensagem='Item removido da lista de leilão.')
+
     @aplicacao.post('/api/leilao/<identificador>/vincular')
     @_csrf_required
     def vincular_item_leilao(identificador):

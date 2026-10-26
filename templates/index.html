@@ -289,6 +289,30 @@
     </form>
   </dialog>
 
-  <script src="{{ url_for('static', filename='app.js') }}?v=16" defer></script>
+  <dialog id="auction-edit-dialog" class="modal">
+    <form id="auction-edit-form" method="dialog">
+      <div class="section-heading">
+        <div><p class="eyebrow">Lista de leilão</p><h2>Editar item</h2></div>
+        <button class="icon-button" type="button" data-close="auction-edit-dialog" aria-label="Fechar">×</button>
+      </div>
+      <input id="auction-edit-id" type="hidden">
+      <label for="auction-edit-description">Descrição</label>
+      <input id="auction-edit-description" maxlength="500" required>
+      <label for="auction-edit-plaqueta">Plaqueta informada</label>
+      <input id="auction-edit-plaqueta" maxlength="100">
+      <label for="auction-edit-sector">Setor</label>
+      <select id="auction-edit-sector">
+        <option value="">Sem setor informado</option>
+      </select>
+      <label for="auction-edit-date">Data</label>
+      <input id="auction-edit-date" maxlength="50">
+      <div class="modal-actions">
+        <button class="button button-primary" type="submit">Salvar alterações</button>
+        <button class="button button-muted" type="button" data-close="auction-edit-dialog">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="{{ url_for('static', filename='app.js') }}?v=18" defer></script>
 </body>
 </html>

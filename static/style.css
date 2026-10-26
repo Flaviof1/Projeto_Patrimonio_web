@@ -122,6 +122,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .auction-list { width: 100%; margin-top: 12px; overflow: auto; }
 .auction-link-controls { display: grid; min-width: 260px; gap: 6px; }
 .auction-link-controls .button { justify-self: start; }
+.auction-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .button {
   display: inline-flex;

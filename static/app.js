@@ -615,7 +615,7 @@ function renderAuctionList(items) {
 
   const table = document.createElement('table');
   const header = document.createElement('tr');
-  ['Descrição', 'Plaqueta informada', 'Setor', 'Data', 'Situação', 'Vincular ao patrimônio'].forEach(text => {
+  ['Descrição', 'Plaqueta informada', 'Setor', 'Data', 'Situação', 'Vincular ao patrimônio', 'Ações'].forEach(text => {
     const cell = document.createElement('th');
     cell.textContent = text;
     header.append(cell);
@@ -639,6 +639,36 @@ function renderAuctionList(items) {
     row.append(status);
 
     const action = document.createElement('td');
+    const controls = document.createElement('div');
+    controls.className = 'auction-row-actions';
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'button button-muted';
+    editButton.textContent = 'Editar';
+    editButton.addEventListener('click', () => openAuctionEdit(item));
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'button button-muted';
+    deleteButton.textContent = 'Excluir';
+    deleteButton.addEventListener('click', async () => {
+      if (!window.confirm(`Excluir "${item.descricao}" da lista de leilão?`)) return;
+      deleteButton.disabled = true;
+      try {
+        const result = await api(`/api/leilao/${encodeURIComponent(item.id)}/excluir`, {
+          method: 'POST',
+          body: {},
+        });
+        notify(result.mensagem);
+        await loadAuctionList();
+      } catch (error) {
+        notify(error.message, 'error');
+        deleteButton.disabled = false;
+      }
+    });
+    controls.append(editButton, deleteButton);
+    action.append(controls);
+
+    const linkAction = document.createElement('td');
     if (item.situacao !== 'IDENTIFICADO') {
       const field = document.createElement('div');
       field.className = 'auction-link-controls';
@@ -660,16 +690,35 @@ function renderAuctionList(items) {
         }
       });
       field.append(searchButton);
-      action.append(field);
+      linkAction.append(field);
     } else {
-      action.textContent = 'Vínculo confirmado manualmente.';
+      linkAction.textContent = 'Vínculo confirmado manualmente.';
     }
+    row.append(linkAction);
     row.append(action);
     body.append(row);
   });
 
   table.append(body);
   container.append(table);
+}
+
+function openAuctionEdit(item) {
+  const sectorSelect = $('#auction-edit-sector');
+  const sectors = currentStatus?.lista_setores || [];
+  setSelectOptions(sectorSelect, sectors, 'Sem setor informado');
+  if (item.setor && !sectors.includes(item.setor)) {
+    const option = document.createElement('option');
+    option.value = item.setor;
+    option.textContent = item.setor;
+    sectorSelect.append(option);
+  }
+  $('#auction-edit-id').value = item.id;
+  $('#auction-edit-description').value = item.descricao;
+  $('#auction-edit-plaqueta').value = item.plaqueta_informada || '';
+  sectorSelect.value = item.setor || '';
+  $('#auction-edit-date').value = item.data || '';
+  $('#auction-edit-dialog').showModal();
 }
 
 function renderAuctionLinkControls(item, container, suggestions) {
@@ -831,6 +880,31 @@ $('#auction-manual-form').addEventListener('submit', async event => {
   try {
     const result = await api('/api/leilao/manual', { method: 'POST', body });
     form.reset();
+    notify(result.mensagem);
+    await loadAuctionList();
+  } catch (error) {
+    notify(error.message, 'error');
+  } finally {
+    setBusy(button, false);
+  }
+});
+$('#auction-edit-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const id = $('#auction-edit-id').value;
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  const body = {
+    descricao: $('#auction-edit-description').value,
+    plaqueta: $('#auction-edit-plaqueta').value,
+    setor: $('#auction-edit-sector').value,
+    data: $('#auction-edit-date').value,
+  };
+  setBusy(button, true, 'Salvando…');
+  try {
+    const result = await api(`/api/leilao/${encodeURIComponent(id)}/editar`, {
+      method: 'POST',
+      body,
+    });
+    $('#auction-edit-dialog').close();
     notify(result.mensagem);
     await loadAuctionList();
   } catch (error) {
