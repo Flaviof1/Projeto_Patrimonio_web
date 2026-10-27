@@ -259,14 +259,16 @@ mostrar **Foto indisponível**, confira se o arquivo existe em
 
 Essa lista é **separada do cadastro patrimonial**. Ela permite importar Excel
 `.xlsx` ou CSV, ou adicionar um item manualmente. A descrição é obrigatória;
-plaqueta, setor e data são opcionais. No cadastro manual, o setor pode ser
-escolhido entre os setores existentes.
+plaqueta, setor, data e observação são opcionais. A observação aceita até
+2.000 caracteres. No cadastro manual, o setor pode ser escolhido entre os
+setores existentes.
 
 Na importação, os cabeçalhos reconhecidos para descrição incluem `Descrição`,
-`Bem` e `Item`; também podem ser usados `Plaqueta`, `Setor` e `Data`. O CSV
-detecta o separador e aceita codificações UTF-8 ou Latin-1. A primeira linha do
-Excel deve conter os cabeçalhos. Cada importação é **acrescentada** à lista
-existente, sem substituir nem remover os registros anteriores.
+`Bem` e `Item`; também podem ser usados `Plaqueta`, `Setor`, `Data` e
+`Observação` (ou `Observações`). O CSV detecta o separador e aceita codificações
+UTF-8 ou Latin-1. A primeira linha do Excel deve conter os cabeçalhos. Cada
+importação é **acrescentada** à lista existente, sem substituir nem remover os
+registros anteriores.
 
 Os itens começam como **Pendente de identificação** e são salvos em
 `dados_web\dados_trabalho\itens_leilao.json`. Para comparar um item com a base,
@@ -276,7 +278,8 @@ Uma sugestão é apenas uma pista: confira os dados e confirme o vínculo
 manualmente. O vínculo não altera a plaqueta, o estado ou o status patrimonial,
 e não realiza baixa. O resultado do leilão e a baixa patrimonial não são
 registrados por esse controle. Use **Editar** para corrigir os dados do item
-ou **Excluir** para removê-lo da lista; a exclusão pede confirmação e não
+ou **Excluir** para removê-lo da lista; a observação aparece na tabela e pode
+ser alterada junto aos demais dados. A exclusão pede confirmação e não
 remove nem altera o bem patrimonial vinculado.
 
 ## Status e estado de conservação

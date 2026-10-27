@@ -128,12 +128,29 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .filter-selection-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; color: var(--muted); font-size: .82rem; }
 .filter-selection { padding: 4px 8px; border: 1px solid #b2ccff; border-radius: 999px; background: #eff6ff; color: #1849a9; }
 .auction-import-forms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.auction-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.auction-title { display: block; font-size: 1.12rem; font-weight: 700; }
+.auction-summary { flex: 0 0 auto; color: var(--muted); font-size: .88rem; }
+.auction-disclosure > p { margin-bottom: 12px; }
 .auction-manual-form { align-items: end; margin-top: 14px; }
+.auction-manual-form .auction-observation-field { grid-column: 1 / -1; }
 .auction-manual-form button { align-self: end; }
 .auction-list { width: 100%; margin-top: 12px; overflow: auto; }
 .auction-link-controls { display: grid; min-width: 260px; gap: 6px; }
 .auction-link-controls .button { justify-self: start; }
 .auction-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+@media (max-width: 640px) {
+  .auction-disclosure > summary { align-items: flex-start; }
+  .auction-summary { text-align: right; }
+}
 
 .button {
   display: inline-flex;

@@ -6,7 +6,7 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Gestão de Inventário Patrimonial</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=12">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=14">
 </head>
 <body>
   <header class="topbar">
@@ -68,45 +68,55 @@
     </section>
 
     <section class="grid">
-      <article class="card">
-        <p class="eyebrow">Controle separado do patrimônio</p>
-        <h2>Itens previstos para leilão</h2>
-        <p>Importe CSV ou Excel (.xlsx) ou adicione um item manualmente. A descrição é obrigatória; plaqueta, setor e data são opcionais. Para procurar bens parecidos, use “Buscar possíveis correspondências” no item desejado. As sugestões precisam ser confirmadas e não alteram status nem dão baixa no patrimônio.</p>
-        <div class="auction-import-forms">
-          <form id="auction-xlsx-form" class="upload-form compact-form">
-            <label for="auction-xlsx-file">Lista de leilão (Excel)</label>
-            <input id="auction-xlsx-file" type="file" accept=".xlsx" required>
-            <button class="button button-secondary" type="submit">Importar Excel</button>
+      <article class="card auction-card">
+        <details id="auction-disclosure" class="auction-disclosure">
+          <summary>
+            <span>
+              <span class="eyebrow">Controle separado do patrimônio</span>
+              <span class="auction-title">Itens previstos para leilão</span>
+            </span>
+            <span id="auction-summary" class="auction-summary">Carregando itens…</span>
+          </summary>
+          <p>Importe CSV ou Excel (.xlsx) ou adicione um item manualmente. A descrição é obrigatória; plaqueta, setor, data e observação são opcionais. Para procurar bens parecidos, use “Buscar possíveis correspondências” no item desejado. As sugestões precisam ser confirmadas e não alteram status nem dão baixa no patrimônio.</p>
+          <div class="auction-import-forms">
+            <form id="auction-xlsx-form" class="upload-form compact-form">
+              <label for="auction-xlsx-file">Lista de leilão (Excel)</label>
+              <input id="auction-xlsx-file" type="file" accept=".xlsx" required>
+              <button class="button button-secondary" type="submit">Importar Excel</button>
+            </form>
+            <form id="auction-csv-form" class="upload-form compact-form">
+              <label for="auction-csv-file">Lista de leilão (CSV)</label>
+              <input id="auction-csv-file" type="file" accept=".csv,text/csv" required>
+              <button class="button button-secondary" type="submit">Importar CSV</button>
+            </form>
+          </div>
+          <form id="auction-manual-form" class="filter-grid auction-manual-form">
+            <div>
+              <label for="auction-description">Descrição do item</label>
+              <input id="auction-description" maxlength="500" required>
+            </div>
+            <div>
+              <label for="auction-plaqueta">Plaqueta informada (opcional)</label>
+              <input id="auction-plaqueta" maxlength="100">
+            </div>
+            <div>
+              <label for="auction-sector">Setor (opcional)</label>
+              <select id="auction-sector">
+                <option value="">Sem setor informado</option>
+              </select>
+            </div>
+            <div>
+              <label for="auction-date">Data (opcional)</label>
+              <input id="auction-date" type="date">
+            </div>
+            <div class="auction-observation-field">
+              <label for="auction-observation">Observação (opcional)</label>
+              <textarea id="auction-observation" rows="3" maxlength="2000"></textarea>
+            </div>
+            <button class="button button-primary" type="submit">Adicionar item à lista</button>
           </form>
-          <form id="auction-csv-form" class="upload-form compact-form">
-            <label for="auction-csv-file">Lista de leilão (CSV)</label>
-            <input id="auction-csv-file" type="file" accept=".csv,text/csv" required>
-            <button class="button button-secondary" type="submit">Importar CSV</button>
-          </form>
-        </div>
-        <form id="auction-manual-form" class="filter-grid auction-manual-form">
-          <div>
-            <label for="auction-description">Descrição do item</label>
-            <input id="auction-description" maxlength="500" required>
-          </div>
-          <div>
-            <label for="auction-plaqueta">Plaqueta informada (opcional)</label>
-            <input id="auction-plaqueta" maxlength="100">
-          </div>
-          <div>
-            <label for="auction-sector">Setor (opcional)</label>
-            <select id="auction-sector">
-              <option value="">Sem setor informado</option>
-            </select>
-          </div>
-          <div>
-            <label for="auction-date">Data (opcional)</label>
-            <input id="auction-date" type="date">
-          </div>
-          <button class="button button-primary" type="submit">Adicionar item à lista</button>
-        </form>
-        <div id="auction-summary" class="muted"></div>
-        <div id="auction-list" class="auction-list"></div>
+          <div id="auction-list" class="auction-list"></div>
+        </details>
       </article>
     </section>
 
@@ -309,6 +319,8 @@
       </select>
       <label for="auction-edit-date">Data</label>
       <input id="auction-edit-date" maxlength="50">
+      <label for="auction-edit-observation">Observação</label>
+      <textarea id="auction-edit-observation" rows="3" maxlength="2000"></textarea>
       <div class="modal-actions">
         <button class="button button-primary" type="submit">Salvar alterações</button>
         <button class="button button-muted" type="button" data-close="auction-edit-dialog">Cancelar</button>
@@ -316,6 +328,6 @@
     </form>
   </dialog>
 
-  <script src="{{ url_for('static', filename='app.js') }}?v=18" defer></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v=19" defer></script>
 </body>
 </html>

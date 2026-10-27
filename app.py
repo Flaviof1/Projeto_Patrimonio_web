@@ -226,6 +226,10 @@ def _ler_arquivo_leilao(arquivo):
         },
         'setor': {'setor', 'setor atual', 'local', 'localizacao', 'unidade'},
         'data': {'data', 'data aquisicao', 'data de aquisicao', 'data cadastro'},
+        'observacao': {
+            'observacao', 'observacoes', 'observacao do item', 'observacoes do item',
+            'observacao item', 'observacoes item',
+        },
     }
     colunas = {}
     for coluna in planilha.columns:
@@ -259,6 +263,7 @@ def _ler_arquivo_leilao(arquivo):
             'descricao': descricao[:500],
             'setor': valor_celula(linha, 'setor')[:255],
             'data': valor_celula(linha, 'data')[:50],
+            'observacao': valor_celula(linha, 'observacao')[:2000],
             'situacao': 'PENDENTE_IDENTIFICACAO',
             'plaqueta_vinculada': '',
         })
@@ -1143,12 +1148,16 @@ def create_app():
         descricao = str(dados.get('descricao', '') or '').strip()
         if not descricao or len(descricao) > 500:
             abort(400, description='Informe uma descrição de até 500 caracteres.')
+        observacao = str(dados.get('observacao', '') or '').strip()
+        if len(observacao) > 2000:
+            abort(400, description='A observação deve ter até 2000 caracteres.')
         item = {
             'id': token_hex(12),
             'plaqueta_informada': str(dados.get('plaqueta', '') or '').strip()[:100],
             'descricao': descricao,
             'setor': str(dados.get('setor', '') or '').strip()[:255],
             'data': str(dados.get('data', '') or '').strip()[:50],
+            'observacao': observacao,
             'situacao': 'PENDENTE_IDENTIFICACAO',
             'plaqueta_vinculada': '',
         }
@@ -1172,8 +1181,11 @@ def create_app():
         plaqueta = str(alteracoes.get('plaqueta', '') or '').strip()
         setor = str(alteracoes.get('setor', '') or '').strip()
         data_item = str(alteracoes.get('data', '') or '').strip()
+        observacao = str(alteracoes.get('observacao', '') or '').strip()
         if len(plaqueta) > 100 or len(setor) > 255 or len(data_item) > 50:
             abort(400, description='Plaqueta, setor ou data excede o limite permitido.')
+        if len(observacao) > 2000:
+            abort(400, description='A observação deve ter até 2000 caracteres.')
         try:
             itens = _carregar_itens_leilao()
         except ValueError as error:
@@ -1193,6 +1205,7 @@ def create_app():
             'plaqueta_informada': plaqueta,
             'setor': setor,
             'data': data_item,
+            'observacao': observacao,
         })
         try:
             _salvar_itens_leilao(itens)

@@ -600,9 +600,12 @@ def test_lista_leilao_importa_csv_e_permite_vinculo_confirmado(client, monkeypat
 
 def test_lista_leilao_importa_excel_e_inclui_item_manual(client):
     workbook = BytesIO()
-    pd.DataFrame([{'Bem': 'Cadeira', 'Plaqueta': '', 'Setor atual': 'Setor B'}]).to_excel(
-        workbook, index=False
-    )
+    pd.DataFrame([{
+        'Bem': 'Cadeira',
+        'Plaqueta': '',
+        'Setor atual': 'Setor B',
+        'Observação': 'Precisa de reparo',
+    }]).to_excel(workbook, index=False)
     importacao = post(
         client,
         '/api/leilao/importar',
@@ -618,13 +621,26 @@ def test_lista_leilao_importa_excel_e_inclui_item_manual(client):
             'descricao': 'Armário de aço',
             'setor': 'Setor C',
             'data': '2021-05-10',
+            'observacao': 'Lote 2',
         },
     )
     assert manual.status_code == 200, manual.get_json()
     itens = client.get('/api/leilao').get_json()['itens']
     assert len(itens) == 2
     assert {item['descricao'] for item in itens} == {'Cadeira', 'Armário de aço'}
+    assert {item['observacao'] for item in itens} == {'Precisa de reparo', 'Lote 2'}
     assert all(item['situacao'] == 'PENDENTE_IDENTIFICACAO' for item in itens)
+
+
+def test_observacao_item_leilao_tem_limite_de_caracteres(client):
+    resposta = post(
+        client,
+        '/api/leilao/manual',
+        json={'descricao': 'Cadeira', 'observacao': 'x' * 2001},
+    )
+
+    assert resposta.status_code == 400
+    assert 'observação' in resposta.get_json()['error'].lower()
 
 
 def test_item_leilao_pode_ser_editado_e_excluido_sem_alterar_base(client, monkeypatch):
@@ -657,6 +673,7 @@ def test_item_leilao_pode_ser_editado_e_excluido_sem_alterar_base(client, monkey
             'plaqueta': '123',
             'setor': 'Setor A',
             'data': '2020-01-01',
+            'observacao': 'Aguardar avaliação',
         },
     )
     assert edicao.status_code == 200, edicao.get_json()
@@ -664,6 +681,7 @@ def test_item_leilao_pode_ser_editado_e_excluido_sem_alterar_base(client, monkey
     assert item_atualizado['descricao'] == 'Mesa de reunião'
     assert item_atualizado['plaqueta_informada'] == '123'
     assert item_atualizado['data'] == '2020-01-01'
+    assert item_atualizado['observacao'] == 'Aguardar avaliação'
     assert item_atualizado['situacao'] == 'IDENTIFICADO'
     assert item_atualizado['plaqueta_vinculada'] == '000123'
     assert base.iloc[0]['STATUS'] == 'PEND'

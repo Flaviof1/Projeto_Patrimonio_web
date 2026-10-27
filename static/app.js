@@ -598,7 +598,7 @@ async function importAuctionList(form) {
 async function loadAuctionList() {
   try {
     const data = await api('/api/leilao');
-    $('#auction-summary').textContent = `${data.total} item(ns) na lista.`;
+    $('#auction-summary').textContent = `${data.total} item(ns)`;
     renderAuctionList(data.itens);
   } catch (error) {
     notify(`Não foi possível carregar a lista de leilão: ${error.message}`, 'error');
@@ -615,7 +615,7 @@ function renderAuctionList(items) {
 
   const table = document.createElement('table');
   const header = document.createElement('tr');
-  ['Descrição', 'Plaqueta informada', 'Setor', 'Data', 'Situação', 'Vincular ao patrimônio', 'Ações'].forEach(text => {
+  ['Descrição', 'Plaqueta informada', 'Setor', 'Data', 'Observação', 'Situação', 'Vincular ao patrimônio', 'Ações'].forEach(text => {
     const cell = document.createElement('th');
     cell.textContent = text;
     header.append(cell);
@@ -627,7 +627,7 @@ function renderAuctionList(items) {
 
   items.forEach(item => {
     const row = document.createElement('tr');
-    [item.descricao, item.plaqueta_informada, item.setor, item.data].forEach(value => {
+    [item.descricao, item.plaqueta_informada, item.setor, item.data, item.observacao].forEach(value => {
       const cell = document.createElement('td');
       cell.textContent = value || '—';
       row.append(cell);
@@ -718,6 +718,7 @@ function openAuctionEdit(item) {
   $('#auction-edit-plaqueta').value = item.plaqueta_informada || '';
   sectorSelect.value = item.setor || '';
   $('#auction-edit-date').value = item.data || '';
+  $('#auction-edit-observation').value = item.observacao || '';
   $('#auction-edit-dialog').showModal();
 }
 
@@ -875,6 +876,7 @@ $('#auction-manual-form').addEventListener('submit', async event => {
     plaqueta: $('#auction-plaqueta').value,
     setor: $('#auction-sector').value,
     data: $('#auction-date').value,
+    observacao: $('#auction-observation').value,
   };
   setBusy(button, true, 'Salvando…');
   try {
@@ -897,6 +899,7 @@ $('#auction-edit-form').addEventListener('submit', async event => {
     plaqueta: $('#auction-edit-plaqueta').value,
     setor: $('#auction-edit-sector').value,
     data: $('#auction-edit-date').value,
+    observacao: $('#auction-edit-observation').value,
   };
   setBusy(button, true, 'Salvando…');
   try {
