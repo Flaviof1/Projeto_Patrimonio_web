@@ -14,6 +14,12 @@ não exponha a porta na internet.
 O [Manual do Sistema (HTML)](MANUAL_USUARIO.html) também descreve a operação
 para quem realiza a conferência.
 
+## Prévia da interface
+
+![Prévia ilustrativa da interface da Gestão de Inventário Patrimonial](docs/interface-preview.svg)
+
+*Imagem ilustrativa da interface; os dados reais da instalação não são exibidos.*
+
 ## Requisitos
 
 - Windows
