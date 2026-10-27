@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1320" viewBox="0 0 1440 1320" role="img" aria-labelledby="title description">
+  <title id="title">Prévia da interface da Gestão de Inventário Patrimonial</title>
+  <desc id="description">Painel ilustrativo com situação da base, importação de dados, conferência por setor, busca e relatórios.</desc>
+  <defs>
+    <linearGradient id="header" x1="0" x2="1">
+      <stop offset="0" stop-color="#143f83"/>
+      <stop offset="1" stop-color="#155eef"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="5" flood-color="#14213d" flood-opacity=".07"/>
+    </filter>
+    <style>
+      .sans { font-family: "Segoe UI", Arial, sans-serif; }
+      .ink { fill: #152238; }
+      .muted { fill: #64748b; }
+      .eyebrow { fill: #61728b; font-size: 15px; font-weight: 800; letter-spacing: 1.3px; }
+      .card { fill: #fff; stroke: #dbe3ee; stroke-width: 1.5; }
+      .label { fill: #344054; font-size: 16px; font-weight: 650; }
+      .body { fill: #64748b; font-size: 16px; }
+      .heading { fill: #152238; font-size: 24px; font-weight: 700; }
+      .button { fill: #155eef; }
+      .button-text { fill: #fff; font-size: 15px; font-weight: 700; }
+      .field { fill: #fff; stroke: #cbd5e1; stroke-width: 1.5; }
+    </style>
+  </defs>
+
+  <rect width="1440" height="1320" fill="#f3f6fa"/>
+  <path d="M0 0h1440v190H0z" fill="url(#header)"/>
+  <text class="sans" x="48" y="58" fill="#bfdbfe" font-size="15" font-weight="800" letter-spacing="2">APLICAÇÃO LOCAL</text>
+  <text class="sans" x="48" y="108" fill="#fff" font-size="38" font-weight="700">Gestão de Inventário Patrimonial</text>
+  <text class="sans" x="48" y="147" fill="#dbeafe" font-size="21">Conferência por setor, consulta de bens e pendências.</text>
+  <rect x="1140" y="54" width="250" height="48" rx="24" fill="none" stroke="#ffffff75" stroke-width="1.5"/>
+  <text class="sans" x="1265" y="84" text-anchor="middle" fill="#eff6ff" font-size="16">Somente neste computador</text>
+
+  <g filter="url(#shadow)">
+    <rect class="card" x="40" y="222" width="1360" height="196" rx="16"/>
+    <path d="M56 222h1328" stroke="#3574ed" stroke-width="5"/>
+  </g>
+  <text class="sans eyebrow" x="72" y="265">BASE OPERACIONAL</text>
+  <text class="sans heading" x="72" y="300">Situação da base</text>
+  <rect x="1212" y="250" width="150" height="36" rx="18" fill="#dcfae6"/>
+  <text class="sans" x="1287" y="274" text-anchor="middle" fill="#05603a" font-size="15" font-weight="700">Dados disponíveis</text>
+  <text class="sans ink" x="72" y="350" font-size="23" font-weight="700">Resumo da base carregada</text>
+  <text class="sans muted" x="72" y="384" font-size="17">Totais, setores, situação da preparação e fontes importadas aparecem nesta área.</text>
+  <text class="sans muted" x="72" y="405" font-size="14">Prévia ilustrativa — os dados exibidos variam conforme a instalação.</text>
+
+  <g filter="url(#shadow)">
+    <rect class="card" x="40" y="444" width="664" height="286" rx="15"/>
+    <rect class="card" x="736" y="444" width="664" height="286" rx="15"/>
+  </g>
+  <text class="sans eyebrow" x="68" y="484">ENTRADA DE DADOS</text>
+  <text class="sans heading" x="68" y="520">Importar cadastro patrimonial</text>
+  <text class="sans body" x="68" y="551">Selecione o CSV SH3. A validação acontece antes de</text>
+  <text class="sans body" x="68" y="575">substituir qualquer arquivo já importado.</text>
+  <text class="sans label" x="68" y="619">Cadastro patrimonial (CSV)</text>
+  <rect class="field" x="68" y="633" width="602" height="44" rx="8"/>
+  <text class="sans muted" x="84" y="661" font-size="15">Escolher arquivo CSV…</text>
+  <rect class="button" x="68" y="688" width="206" height="32" rx="8"/>
+  <text class="sans button-text" x="171" y="710" text-anchor="middle">Validar e importar CSV</text>
+
+  <text class="sans eyebrow" x="764" y="484">FONTES AUXILIARES OPCIONAIS</text>
+  <text class="sans heading" x="764" y="520">Preparação SH3</text>
+  <text class="sans body" x="764" y="551">Importe as fontes que utiliza e prepare os dados</text>
+  <text class="sans body" x="764" y="575">para a conferência patrimonial.</text>
+  <text class="sans label" x="764" y="619">Bens alienados e bens baixados (Excel)</text>
+  <rect class="field" x="764" y="633" width="608" height="44" rx="8"/>
+  <text class="sans muted" x="780" y="661" font-size="15">Selecione as planilhas auxiliares…</text>
+  <rect class="button" x="764" y="688" width="197" height="32" rx="8"/>
+  <text class="sans button-text" x="862" y="710" text-anchor="middle">Preparar Dados (SH3)</text>
+
+  <g filter="url(#shadow)">
+    <rect class="card" x="40" y="756" width="1360" height="232" rx="15"/>
+  </g>
+  <text class="sans eyebrow" x="72" y="798">CONFERÊNCIA</text>
+  <text class="sans heading" x="72" y="835">Conferência por setor</text>
+  <text class="sans body" x="72" y="866">Selecione um setor para revisar os bens, registrar status, estado e observações.</text>
+  <text class="sans label" x="72" y="914">Setor</text>
+  <rect class="field" x="72" y="927" width="490" height="42" rx="8"/>
+  <text class="sans muted" x="88" y="954" font-size="15">Selecione um setor</text>
+  <rect class="button" x="576" y="927" width="112" height="42" rx="8"/>
+  <text class="sans button-text" x="632" y="954" text-anchor="middle">Iniciar</text>
+  <rect x="716" y="927" width="308" height="42" rx="8" fill="#eff6ff" stroke="#b2ccff"/>
+  <text class="sans" x="870" y="954" text-anchor="middle" fill="#1248b8" font-size="15" font-weight="700">Incluir bem sem plaqueta</text>
+
+  <g filter="url(#shadow)">
+    <rect class="card" x="40" y="1014" width="1360" height="230" rx="15"/>
+  </g>
+  <text class="sans eyebrow" x="72" y="1056">CONSULTA</text>
+  <text class="sans heading" x="72" y="1093">Busca geral de bens</text>
+  <text class="sans label" x="72" y="1132">Texto para buscar</text>
+  <rect class="field" x="72" y="1147" width="950" height="44" rx="8"/>
+  <text class="sans muted" x="88" y="1175" font-size="15">Descrição, plaqueta ou setor…</text>
+  <rect class="button" x="1038" y="1147" width="112" height="44" rx="8"/>
+  <text class="sans button-text" x="1094" y="1175" text-anchor="middle">Buscar</text>
+  <rect x="1164" y="1147" width="194" height="44" rx="8" fill="#fff" stroke="#d0d5dd" stroke-width="1.5"/>
+  <text class="sans" x="1261" y="1175" text-anchor="middle" fill="#344054" font-size="15" font-weight="700">Limpar filtros</text>
+  <text class="sans muted" x="72" y="1220" font-size="15">Filtre por setor, status, plaqueta, foto ou período e gere relatórios em Excel ou PDF.</text>
+
+  <text class="sans muted" x="720" y="1290" text-anchor="middle" font-size="14">Prévia ilustrativa da interface • Os dados reais não são exibidos nesta imagem</text>
+</svg>
