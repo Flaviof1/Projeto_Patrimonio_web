@@ -1,10 +1,12 @@
 import json
 import getpass
 import difflib
+import ipaddress
 import os
 import re
 import socket
 import shutil
+import subprocess
 import tempfile
 import zipfile
 import unicodedata
@@ -77,6 +79,36 @@ PHOTO_MIME_TYPES = {
     'GIF': 'image/gif',
     'WEBP': 'image/webp',
 }
+
+
+def _obter_endereco_tailscale():
+    executavel = shutil.which('tailscale')
+    if executavel is None:
+        return None, 'comando tailscale não encontrado'
+
+    try:
+        resultado = subprocess.run(
+            [executavel, 'ip', '-4'],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return None, 'o comando tailscale excedeu o tempo limite'
+    except OSError as erro:
+        return None, f'não foi possível executar tailscale: {erro}'
+
+    if resultado.returncode != 0:
+        detalhe = resultado.stderr.strip() or 'comando terminou com erro'
+        return None, f'não foi possível consultar tailscale: {detalhe}'
+
+    for linha in resultado.stdout.splitlines():
+        try:
+            return str(ipaddress.IPv4Address(linha.strip())), None
+        except ipaddress.AddressValueError:
+            continue
+    return None, 'o comando tailscale não retornou um endereço IPv4'
 
 
 def _normalizar_valor(valor):
@@ -1521,4 +1553,11 @@ if __name__ == '__main__':
                 print(f'  http://{endereco}:{port}')
         else:
             print('  Não foi possível detectar o IPv4; consulte "ipconfig".')
+        print('Acesso remoto pelo Tailscale:')
+        endereco_tailscale, erro_tailscale = _obter_endereco_tailscale()
+        if endereco_tailscale:
+            print(f'  http://{endereco_tailscale}:{port}')
+        else:
+            print(f'  Não foi possível detectar: {erro_tailscale}.')
+            print('  Consulte o endereço do servidor no painel de máquinas do Tailscale.')
     app.run(host=host, port=port, debug=False, threaded=False)

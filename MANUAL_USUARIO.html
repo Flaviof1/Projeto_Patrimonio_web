@@ -131,23 +131,54 @@
       Flask, seguido de <code>:8765</code>. Exemplo: <code>http://192.168.1.20:8765</code>.
       Os aparelhos precisam estar na mesma rede e o firewall do Windows pode
       solicitar autorização para rede privada.</p>
-      <h3>De outra rede usando Tailscale</h3>
+      <h3>De outra rede usando Tailscale (celular, tablet ou computador)</h3>
+      <p>Funciona em qualquer aparelho que consiga entrar na mesma rede privada
+      Tailscale e tenha navegador. Isso inclui Android, iPhone e iPad, além de
+      computadores Windows, macOS e Linux, com o Tailscale instalado e conectado.</p>
       <ol class="steps">
-        <li>Instale o aplicativo oficial do Tailscale no PC servidor e no aparelho
-        de auditoria e entre na mesma rede/conta Tailscale.</li>
+        <li>Instale e conecte o Tailscale no PC servidor. Inicie o Flask e deixe
+        o PC ligado, sem suspensão, com o terminal aberto.</li>
+        <li>No novo aparelho, instale o aplicativo oficial do Tailscale e entre
+        na mesma conta usada no PC servidor. Se usar outra conta, o administrador
+        precisa convidar essa pessoa para a rede ou compartilhar o PC servidor
+        com ela e autorizar o acesso na política da rede.</li>
         <li>No painel <a href="https://login.tailscale.com/admin/machines">Máquinas
-        do Tailscale</a>, confirme que PC e aparelho aparecem conectados.</li>
-        <li>Copie o endereço Tailscale do <strong>PC servidor</strong> (um IPv4
-        que normalmente começa com <code>100.</code>), não o endereço do iPhone.</li>
-        <li>Com Tailscale conectado no iPhone, abra no Safari
-        <code>http://IP-DO-PC:8765</code>. O endereço verificado neste PC em
-        22/10/2026 era <code>http://100.85.183.31:8765</code>. O IP do Tailscale
-        normalmente permanece o mesmo depois de desligar e ligar o PC.</li>
+        do Tailscale</a>, confirme que o PC e o aparelho estão conectados e
+        autorizados.</li>
+        <li>No navegador do aparelho, abra o endereço da seção
+        <strong>Acesso remoto pelo Tailscale</strong> mostrado no terminal do PC,
+        no formato <code>http://IP-DO-PC:8765</code>. O IP do servidor normalmente
+        começa com <code>100.</code>; não use o IP do celular. Se o endereço não
+        aparecer no terminal, consulte o IPv4 do PC no painel de máquinas.</li>
       </ol>
-      <p>O PC deve permanecer ligado e sem suspensão. MySQL e Flask também devem
-      continuar ativos. Não é necessário abrir ou encaminhar a porta no roteador.
-      Para encerrar o Flask, volte ao terminal do servidor e pressione
+      <p>Não é necessário que o aparelho esteja no mesmo Wi-Fi do PC. MySQL e
+      Flask devem continuar ativos no servidor. Não abra nem encaminhe a porta
+      no roteador. Para encerrar o Flask, volte ao terminal do servidor e pressione
       <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+      <aside class="callout">
+        <strong>Firewall do Windows e novos aparelhos</strong>
+        O aplicativo não tem login próprio: qualquer dispositivo autorizado a
+        alcançar o endereço pode consultar e alterar dados. Se o firewall permitir
+        somente o IP Tailscale de um aparelho, autorize também cada novo aparelho.
+        Para permitir qualquer dispositivo IPv4 da rede Tailscale, uma pessoa
+        administradora pode abrir o PowerShell como administrador no PC servidor
+        e executar:
+        <pre><code>New-NetFirewallRule `
+  -DisplayName "Patrimonio Web via Tailscale" `
+  -Direction Inbound `
+  -Action Allow `
+  -Protocol TCP `
+  -LocalPort 8765 `
+  -RemoteAddress 100.64.0.0/10 `
+  -InterfaceAlias "Tailscale" `
+  -Profile Any `
+  -Description "Acesso ao Patrimonio Web pela rede Tailscale"</code></pre>
+        Essa regra permite acesso à porta 8765 pelos dispositivos IPv4 da rede
+        Tailscale. Use-a somente se a rede estiver restrita a pessoas confiáveis.
+        Para permitir apenas um aparelho, substitua
+        <code>100.64.0.0/10</code> pelo IPv4 Tailscale dele. Se necessário,
+        confira o nome da interface com <code>Get-NetAdapter</code>.
+      </aside>
       <p>O endereço pode mudar se o PC for removido da rede Tailscale e adicionado
       novamente, se o Tailscale for redefinido/reinstalado e perder o registro do
       dispositivo, se o disco for apagado ou se um administrador mudar o IP
@@ -219,17 +250,18 @@ set PATRIMONIO_STORAGE=mysql
         para a linha de comando. Não feche a janela do terminal e não pressione
         <kbd>Ctrl</kbd>+<kbd>C</kbd> enquanto estiver usando o sistema. Você pode
         minimizar a janela.</li>
-        <li><strong>No iPhone</strong>, ligue o Tailscale e confirme que está
-        conectado. Abra o Safari e digite
-        <code>http://100.85.183.31:8765</code>. Este é o endereço atual
-        confirmado para este PC; se algum dia não funcionar, confira o endereço
-        do PC em <strong>Máquinas</strong> no painel Tailscale.</li>
+        <li><strong>No aparelho que vai acessar</strong>, ligue o Tailscale e
+        confirme que está conectado à rede autorizada. Abra o navegador e digite
+        o endereço da seção <strong>Acesso remoto pelo Tailscale</strong> mostrada
+        no terminal do PC, por exemplo <code>http://IP-DO-PC:8765</code>. Se o
+        endereço não aparecer, confira o IP do PC em <strong>Máquinas</strong>
+        no painel Tailscale.</li>
       </ol>
       <aside class="callout">
         <strong>Resumo fácil de lembrar</strong>
         Depois de reiniciar o PC: Tailscale conectado + MySQL em execução +
         Flask iniciado no terminal (VS Code, PowerShell ou CMD) + Tailscale
-        ligado no iPhone.
+        ligado no aparelho que vai acessar.
         O IP Tailscale normalmente não muda; o servidor Flask é que precisa ser
         iniciado novamente.
       </aside>

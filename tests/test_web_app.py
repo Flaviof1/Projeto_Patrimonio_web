@@ -3,6 +3,7 @@ import shutil
 import tempfile
 from pathlib import Path
 from io import BytesIO
+from types import SimpleNamespace
 
 import pytest
 
@@ -771,3 +772,30 @@ def test_restauracao_exige_confirmacao_e_backup_web_valido(client):
         json={'confirmado': True},
     )
     assert invalido.status_code == 400
+
+
+def test_obter_endereco_tailscale_consulta_ipv4(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(app_module.shutil, 'which', lambda comando: 'tailscale.exe')
+
+    def executar(comando, **kwargs):
+        chamadas.append((comando, kwargs))
+        return SimpleNamespace(returncode=0, stdout='100.85.183.31\n', stderr='')
+
+    monkeypatch.setattr(app_module.subprocess, 'run', executar)
+
+    endereco, erro = app_module._obter_endereco_tailscale()
+
+    assert endereco == '100.85.183.31'
+    assert erro is None
+    assert chamadas[0][0] == ['tailscale.exe', 'ip', '-4']
+    assert chamadas[0][1]['timeout'] == 3
+
+
+def test_obter_endereco_tailscale_avisa_quando_comando_nao_existe(monkeypatch):
+    monkeypatch.setattr(app_module.shutil, 'which', lambda comando: None)
+
+    endereco, erro = app_module._obter_endereco_tailscale()
+
+    assert endereco is None
+    assert erro == 'comando tailscale não encontrado'

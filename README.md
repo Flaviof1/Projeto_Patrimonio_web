@@ -44,18 +44,63 @@ somente em redes privadas. Para encerrar, volte ao terminal e pressione
 O servidor atende uma solicitação por vez. Evite que várias pessoas editem os
 mesmos dados simultaneamente.
 
-### Acesso remoto por Tailscale
+### Acesso remoto por Tailscale: celular, tablet ou computador
 
-Instale e conecte o Tailscale no servidor e nos dispositivos autorizados. No
-painel do Tailscale, localize o endereço IPv4 atual do computador servidor e
-acesse no outro dispositivo `http://IP-DO-SERVIDOR:8765`. O Flask deve
-continuar aberto e o computador não pode estar desligado ou suspenso.
+O acesso funciona em qualquer aparelho que consiga entrar na mesma rede
+privada Tailscale e tenha um navegador. Isso inclui celulares e tablets Android
+e Apple, além de computadores Windows, macOS e Linux, desde que o Tailscale
+esteja instalado e conectado no aparelho.
 
-O endereço pode ser consultado no painel de máquinas do Tailscale; não presuma
-que um endereço de exemplo neste documento ainda esteja atualizado. Não
-configure encaminhamento da porta no roteador nem exponha o Flask diretamente à
-internet. O Tailscale protege a conexão de rede, mas não adiciona controle de
-acesso ao sistema.
+1. **Mantenha o servidor pronto.** Instale e conecte o Tailscale no computador
+   que executa o aplicativo Patrimônio. Inicie o Flask e deixe o computador
+   ligado, sem suspensão, e o terminal aberto. Ao iniciar, o terminal mostra o
+   endereço da seção **Acesso remoto pelo Tailscale**. Se não mostrar, consulte
+   o IPv4 do computador servidor no
+   [painel de máquinas do Tailscale](https://login.tailscale.com/admin/machines).
+2. **Conecte o novo aparelho à mesma rede Tailscale.** Instale o aplicativo
+   oficial do Tailscale e entre na mesma conta usada no servidor. Se o aparelho
+   usar outra conta, o administrador da rede deve convidar essa pessoa para a
+   rede ou compartilhar o servidor com ela e autorizar o acesso na política da
+   rede. Confirme no painel que o novo aparelho está conectado e autorizado.
+3. **Abra o endereço no navegador do aparelho.** Use o IPv4 Tailscale do
+   computador servidor, e não o IP do celular, neste formato:
+   `http://IP-DO-SERVIDOR:8765` (normalmente `http://100.x.y.z:8765`). Use
+   `http`, não `https`. Não é necessário estar no mesmo Wi-Fi.
+
+#### Firewall do Windows
+
+O aplicativo não tem login próprio: qualquer dispositivo autorizado a alcançar
+o endereço pode consultar e alterar os dados. Restrinja a rede Tailscale a
+pessoas e aparelhos confiáveis.
+
+Se o firewall estiver configurado para permitir somente o IP Tailscale de um
+aparelho, cada novo aparelho também precisa ser autorizado. Para permitir
+qualquer dispositivo IPv4 da sua rede Tailscale, uma pessoa administradora pode
+abrir o PowerShell **como administrador** no servidor e criar uma regra limitada
+à interface Tailscale e à porta do aplicativo:
+
+```powershell
+New-NetFirewallRule `
+  -DisplayName "Patrimonio Web via Tailscale" `
+  -Direction Inbound `
+  -Action Allow `
+  -Protocol TCP `
+  -LocalPort 8765 `
+  -RemoteAddress 100.64.0.0/10 `
+  -InterfaceAlias "Tailscale" `
+  -Profile Any `
+  -Description "Acesso ao Patrimonio Web pela rede Tailscale"
+```
+
+Essa opção permite que os dispositivos IPv4 da rede Tailscale alcancem a porta
+8765; por isso, use-a somente se a rede e sua política de acesso forem
+restritas a pessoas confiáveis. Para autorizar somente um aparelho, substitua
+`100.64.0.0/10` pelo IPv4 Tailscale desse aparelho. Se o nome da interface for
+diferente no Windows, confira-o com `Get-NetAdapter`.
+
+Não configure encaminhamento da porta no roteador nem exponha o Flask
+diretamente à internet. O Tailscale protege a conexão de rede, mas não adiciona
+controle de acesso ao aplicativo.
 
 ## Armazenamento
 
