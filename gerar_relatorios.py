@@ -4,6 +4,7 @@ from datetime import datetime
 import pandas as pd
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
+from identidade_visual import aplicar_marca_cabecalho_excel
 
 from paths import DADOS_TRABALHO_DIR, caminho_relatorio, caminho_trabalho, garantir_pastas, localizar_arquivo
 from dados_patrimoniais import carregar_dados_patrimoniais, enriquecer_com_dados_patrimoniais
@@ -335,6 +336,7 @@ def criar_detalhamento_completo(df):
 
 def ajustar_planilha(writer, sheet_name):
     ws = writer.sheets[sheet_name]
+    aplicar_marca_cabecalho_excel(ws)
     header_fill = PatternFill('solid', fgColor='1E3A8A')
     header_font = Font(color='FFFFFF', bold=True)
     border = Border(bottom=Side(style='thin', color='D8E0EC'))
@@ -428,4 +430,3 @@ def exportar_relatorio_gerencial(df, path=None):
         'nao_emplacados': len(abas['Nao_Emplacados']),
         'total_abas': len(abas),
     }
-

@@ -26,11 +26,17 @@
       font: 16px/1.65 "Segoe UI", Arial, sans-serif;
     }
     header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 28px;
       padding: 42px max(22px, calc((100% - 1040px) / 2));
       background: var(--brand);
       color: #fff;
     }
-    header p { max-width: 780px; margin-bottom: 0; color: #e0e8ff; }
+    .header-copy { max-width: 780px; }
+    header p { margin-bottom: 0; color: #e0e8ff; }
+    .brand-logo { display: block; flex: 0 0 155px; width: 155px; height: auto; opacity: .8; }
     h1 { margin: 0; font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; }
     main { max-width: 1040px; margin: 28px auto; padding: 0 20px 48px; }
     nav, article, .callout {
@@ -63,14 +69,17 @@
     .small { color: var(--muted); font-size: .94rem; }
     footer { padding: 18px; color: var(--muted); text-align: center; }
     @media (max-width: 620px) {
+      header { flex-direction: column; padding: 28px 20px; }
+      .brand-logo { align-self: flex-end; width: 140px; }
       nav, article, .callout { padding: 18px; }
       nav ul { columns: 1; }
       table { font-size: .9rem; }
     }
     @media print {
       body { background: #fff; font-size: 11pt; }
-      header { padding: 20px 0; background: #fff; color: var(--ink); }
+      header { display: block; padding: 20px 38mm 20px 0; background: #fff; color: var(--ink); }
       header p { color: var(--muted); }
+      .brand-logo { position: fixed; top: 4mm; right: 0; width: 32mm; opacity: .22; filter: brightness(.55); }
       main { max-width: none; margin: 0; padding: 0; }
       nav, article, .callout { break-inside: avoid; box-shadow: none; }
       a { color: inherit; text-decoration: none; }
@@ -79,9 +88,12 @@
 </head>
 <body>
   <header>
-    <h1>Manual do Sistema Web de Gestão Patrimonial</h1>
-    <p>Guia de acesso, preparação da base, auditoria por setor, pesquisa, fotos,
-      relatórios e proteção dos dados.</p>
+    <div class="header-copy">
+      <h1>Manual do Sistema Web de Gestão Patrimonial</h1>
+      <p>Guia de acesso, preparação da base, auditoria por setor, pesquisa, fotos,
+        relatórios e proteção dos dados.</p>
+    </div>
+    <img class="brand-logo" src="static/f3-tecnologia.svg" alt="F3 Tecnologia">
   </header>
   <main>
     <nav aria-label="Sumário">

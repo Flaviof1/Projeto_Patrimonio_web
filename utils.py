@@ -14,6 +14,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
+from identidade_visual import aplicar_marca_cabecalho_excel, desenhar_marca_cabecalho_pdf
 from paths import caminho_relatorio, garantir_pastas
 from constantes import STATUS_OPCOES, PREFIXO_RELATORIO_BUSCA
 
@@ -205,7 +206,7 @@ def exportar_relatorio_busca_pdf(dados, caminho_saida=None, filtros=None):
         pagesize=landscape(A4),
         leftMargin=10 * mm,
         rightMargin=10 * mm,
-        topMargin=10 * mm,
+        topMargin=16 * mm,
         bottomMargin=10 * mm,
         title='Relatório da Busca Geral',
     )
@@ -264,13 +265,15 @@ def exportar_relatorio_busca_pdf(dados, caminho_saida=None, filtros=None):
             estilos['Normal']),
         Spacer(1, 5 * mm),
         tabela,
-    ])
+    ], onFirstPage=desenhar_marca_cabecalho_pdf,
+        onLaterPages=desenhar_marca_cabecalho_pdf)
     return caminho
 
 
 def ajustar_planilha_relatorio(writer, sheet_name):
     """Aplica formatação (cabeçalho, largura, bordas) a uma aba do relatório"""
     ws = writer.sheets[sheet_name]
+    aplicar_marca_cabecalho_excel(ws)
     header_fill = PatternFill('solid', fgColor='1E3A8A')
     header_font = Font(color='FFFFFF', bold=True)
     border = Border(bottom=Side(style='thin', color='D8E0EC'))

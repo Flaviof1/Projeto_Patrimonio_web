@@ -6,7 +6,7 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Gestão de Inventário Patrimonial</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=11">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=12">
 </head>
 <body>
   <header class="topbar">
@@ -15,7 +15,10 @@
       <h1>Gestão de Inventário Patrimonial</h1>
       <p class="subtitle">Conferência por setor, consulta de bens e pendências.</p>
     </div>
-    <span class="local-pill">Somente neste computador</span>
+    <div class="topbar-brand">
+      <img src="{{ url_for('static', filename='f3-tecnologia.svg') }}" alt="F3 Tecnologia">
+      <span class="local-pill">Somente neste computador</span>
+    </div>
   </header>
 
   <main>

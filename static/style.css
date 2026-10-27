@@ -43,6 +43,17 @@ body {
   text-transform: uppercase;
 }
 .topbar .eyebrow { color: #bfdbfe; }
+.topbar-brand {
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+}
+.topbar-brand img {
+  display: block;
+  width: 168px;
+  height: auto;
+  opacity: .8;
+}
 .local-pill {
   flex: 0 0 auto;
   padding: 7px 12px;
@@ -210,7 +221,9 @@ td[data-field="ALTERADO_EM"] { white-space: nowrap; font-variant-numeric: tabula
   .two-columns { grid-template-columns: 1fr; }
 }
 @media (max-width: 620px) {
-  .topbar { align-items: flex-start; flex-direction: column; padding: 22px 18px; }
+  .topbar { align-items: stretch; flex-direction: column; padding: 22px 18px; }
+  .topbar-brand { align-self: stretch; justify-items: end; gap: 8px; }
+  .topbar-brand img { width: 142px; }
   main { padding: 14px; }
   .card { padding: 16px; }
   .inline-form { align-items: stretch; flex-direction: column; }

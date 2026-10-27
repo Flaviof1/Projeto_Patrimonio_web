@@ -110,6 +110,11 @@ def test_aplicacao_inicia_sem_abrir_dados_do_desktop(client):
 
     assert resposta.status_code == 200
     assert resposta.get_json()['estado'] == 'sem_dados'
+    pagina = client.get('/')
+    assert b'alt="F3 Tecnologia"' in pagina.data
+    logo = client.get('/static/f3-tecnologia.svg')
+    assert logo.status_code == 200
+    assert b'<title id="title">F3 Tecnologia</title>' in logo.data
     assert not (
         DATA_DIR / 'dados_trabalho'
     ).joinpath('conferencia_resultado.xlsx').exists()
@@ -688,7 +693,16 @@ def test_relatorio_gerencial_e_backup_web_restauravel(client):
     relatorio = post(client, '/api/relatorios/pendencias', json={})
     assert relatorio.status_code == 200, relatorio.get_json()
     nome_relatorio = relatorio.get_json()['arquivo']
-    assert client.get(f'/api/relatorios/{nome_relatorio}').status_code == 200
+    resposta_relatorio = client.get(f'/api/relatorios/{nome_relatorio}')
+    assert resposta_relatorio.status_code == 200
+    dados_relatorio = resposta_relatorio.data
+    resposta_relatorio.close()
+    workbook_relatorio = load_workbook(BytesIO(dados_relatorio))
+    assert all(
+        planilha.oddHeader.right.text == 'F3 Tecnologia'
+        for planilha in workbook_relatorio.worksheets
+    )
+    workbook_relatorio.close()
 
     item = client.get('/api/conferencia?setor=Setor%20A').get_json()['itens'][0]
     assert post(
@@ -736,8 +750,15 @@ def test_relatorios_da_busca_exportam_exatamente_os_filtros_aplicados(client):
         f"/api/relatorios/{excel.get_json()['arquivo']}"
     )
     assert resposta_excel.status_code == 200
-    workbook = load_workbook(BytesIO(resposta_excel.data), read_only=True)
+    dados_excel = resposta_excel.data
+    resposta_excel.close()
+    workbook = load_workbook(BytesIO(dados_excel))
     assert 'Itens_Filtrados' in workbook.sheetnames
+    assert all(
+        planilha.oddHeader.right.text == 'F3 Tecnologia'
+        for planilha in workbook.worksheets
+    )
+    workbook.close()
 
     pdf = post(client, '/api/relatorios/busca/pdf', json=filtros)
     assert pdf.status_code == 200, pdf.get_json()
