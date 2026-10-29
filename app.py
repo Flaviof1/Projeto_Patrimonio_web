@@ -1335,6 +1335,32 @@ def create_app():
         _salvar_planilha(dados)
         return jsonify(mensagem='Conferência salva.')
 
+    @aplicacao.post('/api/itens/excluir-lote')
+    @_csrf_required
+    def excluir_itens_em_lote():
+        payload = request.get_json(silent=True)
+        ids = payload.get('ids') if isinstance(payload, dict) else None
+        if not isinstance(ids, list) or not ids:
+            abort(400, description='Selecione ao menos um item para excluir.')
+        try:
+            indices = [int(indice) for indice in ids]
+        except (TypeError, ValueError):
+            abort(400, description='A seleção contém identificadores inválidos.')
+        if len(indices) != len(set(indices)):
+            abort(400, description='A seleção contém itens repetidos.')
+        try:
+            dados = _carregar_base()
+        except ValueError as error:
+            abort(409, description=str(error))
+        if dados is None or any(indice not in dados.index for indice in indices):
+            abort(404, description='Um ou mais itens selecionados não foram encontrados.')
+        dados = dados.drop(index=indices).reset_index(drop=True)
+        try:
+            _salvar_planilha(dados)
+        except (OSError, ValueError) as error:
+            abort(500, description=f'Não foi possível excluir os itens: {error}')
+        return jsonify(mensagem=f'{len(indices)} item(ns) excluído(s) da base patrimonial.')
+
     @aplicacao.post('/api/itens/<int:indice>/foto')
     @_csrf_required
     def atualizar_foto(indice):

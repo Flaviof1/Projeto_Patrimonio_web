@@ -523,6 +523,35 @@ def test_busca_filtra_itens_com_e_sem_plaqueta(client, monkeypatch):
     assert com_plaqueta['itens'][0]['Plaqueta'] == '000123'
 
 
+def test_busca_exclui_em_lote_itens_selecionados(client, monkeypatch):
+    base = pd.DataFrame([
+        {'Plaqueta': '000123', 'Descrição': 'Mesa', 'Setor Atual': 'Setor A'},
+        {'Plaqueta': '', 'Descrição': 'Bem sem plaqueta', 'Setor Atual': 'Setor A'},
+        {'Plaqueta': '000124', 'Descrição': 'Cadeira', 'Setor Atual': 'Setor B'},
+    ])
+    gravado = {}
+    monkeypatch.setattr(app_module, '_carregar_base', lambda: base.copy())
+    monkeypatch.setattr(app_module, '_salvar_planilha', lambda dados: gravado.update(base=dados.copy()))
+
+    resposta = post(client, '/api/itens/excluir-lote', json={'ids': [0, 2]})
+
+    assert resposta.status_code == 200, resposta.get_json()
+    assert resposta.get_json()['mensagem'].startswith('2 item(ns) excluído(s)')
+    assert gravado['base']['Descrição'].tolist() == ['Bem sem plaqueta']
+
+
+def test_exclusao_em_lote_rejeita_selecao_invalida_sem_salvar(client, monkeypatch):
+    base = pd.DataFrame([{'Plaqueta': '000123', 'Descrição': 'Mesa'}])
+    salvou = []
+    monkeypatch.setattr(app_module, '_carregar_base', lambda: base.copy())
+    monkeypatch.setattr(app_module, '_salvar_planilha', lambda dados: salvou.append(dados))
+
+    resposta = post(client, '/api/itens/excluir-lote', json={'ids': [0, 99]})
+
+    assert resposta.status_code == 404
+    assert salvou == []
+
+
 def test_busca_e_conferencia_paginam_resultados(client, monkeypatch):
     dados = pd.DataFrame([
         {

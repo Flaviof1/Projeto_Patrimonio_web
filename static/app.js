@@ -3,6 +3,8 @@ const statusUrl = '/api/status';
 let currentStatus = null;
 let currentView = { type: 'none' };
 let lastSearchCount = 0;
+const selectedSearchItems = new Set();
+const selectedConferenceItems = new Set();
 const tablePageSize = 50;
 
 const $ = (selector) => document.querySelector(selector);
@@ -187,6 +189,26 @@ function makeTable(container, items) {
   const actionHeading = document.createElement('th');
   actionHeading.textContent = 'Ação';
   heading.append(actionHeading);
+  const selectionEnabled = currentView.type === 'search' || currentView.type === 'sector';
+  const selectedItems = currentView.type === 'sector'
+    ? selectedConferenceItems
+    : selectedSearchItems;
+  if (selectionEnabled) {
+    const selectHeading = document.createElement('th');
+    const selectPage = document.createElement('input');
+    selectPage.type = 'checkbox';
+    selectPage.setAttribute('aria-label', 'Selecionar todos os itens desta página');
+    selectPage.checked = items.length > 0 && items.every(item => selectedItems.has(item.id));
+    selectPage.addEventListener('change', () => {
+      items.forEach(item => selectPage.checked
+        ? selectedItems.add(item.id)
+        : selectedItems.delete(item.id));
+      updateBulkDeleteButton();
+      makeTable(container, items);
+    });
+    selectHeading.append(selectPage);
+    heading.append(selectHeading);
+  }
   thead.append(heading);
   table.append(thead);
 
@@ -249,6 +271,21 @@ function makeTable(container, items) {
     button.addEventListener('click', () => openEdit(item));
     actionCell.append(button);
     row.append(actionCell);
+    if (selectionEnabled) {
+      const selectionCell = document.createElement('td');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = selectedItems.has(item.id);
+      checkbox.setAttribute('aria-label', `Selecionar ${item['Descrição'] || 'item'}`);
+      checkbox.addEventListener('change', () => {
+        checkbox.checked ? selectedItems.add(item.id) : selectedItems.delete(item.id);
+        updateBulkDeleteButton();
+        const pageSelect = container.querySelector('thead input[type="checkbox"]');
+        if (pageSelect) pageSelect.checked = items.length > 0 && items.every(rowItem => selectedItems.has(rowItem.id));
+      });
+      selectionCell.append(checkbox);
+      row.append(selectionCell);
+    }
     tbody.append(row);
   });
   table.append(tbody);
@@ -357,8 +394,44 @@ async function runSearch(event, page = 1) {
     $('#search-excel-button').disabled = data.total === 0;
     $('#search-pdf-button').disabled = data.total === 0;
     $('#search-report-result').replaceChildren();
+    updateBulkDeleteButton();
   } catch (error) {
     notify(error.message, 'error');
+  }
+}
+
+function updateBulkDeleteButton() {
+  [
+    ['#delete-selected-search-items', selectedSearchItems.size],
+    ['#delete-selected-conference-items', selectedConferenceItems.size],
+  ].forEach(([selector, count]) => {
+    const button = $(selector);
+    if (!button) return;
+    button.disabled = count === 0;
+    button.textContent = count ? `Excluir selecionados (${count})` : 'Excluir selecionados';
+  });
+}
+
+async function deleteSelectedItems(viewType) {
+  const selectedItems = viewType === 'sector' ? selectedConferenceItems : selectedSearchItems;
+  const ids = Array.from(selectedItems);
+  if (!ids.length) return;
+  if (!window.confirm(`Excluir ${ids.length} item(ns) selecionado(s)${viewType === 'sector' ? ' deste setor' : ''} da base patrimonial?`)) return;
+  const button = viewType === 'sector'
+    ? $('#delete-selected-conference-items')
+    : $('#delete-selected-search-items');
+  setBusy(button, true, 'Excluindo…');
+  try {
+    const result = await api('/api/itens/excluir-lote', { method: 'POST', body: { ids } });
+    selectedItems.clear();
+    notify(result.mensagem);
+    updateBulkDeleteButton();
+    await refreshCurrentView();
+  } catch (error) {
+    notify(error.message, 'error');
+  } finally {
+    setBusy(button, false);
+    updateBulkDeleteButton();
   }
 }
 
@@ -949,6 +1022,8 @@ $('#search-excel-button').addEventListener('click', event => {
 $('#search-pdf-button').addEventListener('click', event => {
   createSearchReport('pdf', event.currentTarget);
 });
+$('#delete-selected-search-items').addEventListener('click', () => deleteSelectedItems('search'));
+$('#delete-selected-conference-items').addEventListener('click', () => deleteSelectedItems('sector'));
 $('#search-form').querySelectorAll('input, select').forEach(control => {
   control.addEventListener('input', invalidateSearch);
   control.addEventListener('change', invalidateSearch);
