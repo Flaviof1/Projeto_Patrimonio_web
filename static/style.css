@@ -128,6 +128,30 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .search-term-control { flex: 1; min-width: 0; }
 .filter-active-values { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: .82rem; }
 .filter-selection { padding: 4px 8px; border: 1px solid #b2ccff; border-radius: 999px; background: #eff6ff; color: #1849a9; }
+.multi-filter { position: relative; }
+.multi-filter-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  list-style: none;
+}
+.multi-filter-control::-webkit-details-marker { display: none; }
+.multi-filter-control:focus-visible { outline: 3px solid #84adff; outline-offset: 1px; }
+.multi-filter-values { display: flex; flex: 1; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.multi-filter-placeholder { flex: 1; color: var(--muted); font-weight: 400; }
+.multi-filter-chip { max-width: 100%; padding: 3px 8px; border: 1px solid #b2ccff; border-radius: 999px; background: #eff6ff; color: #1849a9; font-size: .82rem; line-height: 1.4; overflow-wrap: anywhere; }
+.multi-filter-chevron { width: 8px; height: 8px; flex: 0 0 8px; margin: -4px 3px 0 auto; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); }
+.multi-filter[open] .multi-filter-chevron { margin-top: 4px; transform: rotate(225deg); }
+.multi-filter-options { position: absolute; top: calc(100% + 4px); left: 0; z-index: 4; width: 100%; max-height: 240px; overflow-y: auto; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 8px 20px #14213d1a; }
+.multi-filter-option { display: flex; align-items: center; gap: 10px; min-height: 40px; margin: 0; padding: 6px 8px; border-radius: 6px; font-weight: 400; cursor: pointer; }
+.multi-filter-option:hover { background: #f3f6fa; }
+.multi-filter-option input { width: 18px; min-height: 18px; margin: 0; flex: 0 0 18px; }
 .auction-import-forms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .auction-disclosure > summary {
   display: flex;

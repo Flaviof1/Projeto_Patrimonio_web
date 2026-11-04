@@ -6,7 +6,7 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Gestão de Inventário Patrimonial</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=17">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=18">
 </head>
 <body>
   <header class="topbar">
@@ -158,18 +158,32 @@
           </div>
           <div class="filter-grid">
             <div>
-              <label for="search-sectors">Setores</label>
-              <select id="search-sectors" multiple size="4"></select>
-              <div id="search-sectors-active" class="filter-active-values"></div>
+              <label id="search-sectors-label">Setores</label>
+              <select id="search-sectors" multiple hidden aria-hidden="true" tabindex="-1"></select>
+              <details id="search-sectors-filter" class="multi-filter">
+                <summary class="multi-filter-control" aria-labelledby="search-sectors-label" aria-controls="search-sectors-options">
+                  <span id="search-sectors-values" class="multi-filter-values"></span>
+                  <span id="search-sectors-placeholder" class="multi-filter-placeholder">Todos os setores</span>
+                  <span class="multi-filter-chevron" aria-hidden="true"></span>
+                </summary>
+                <div id="search-sectors-options" class="multi-filter-options" role="group" aria-label="Escolha um ou mais setores"></div>
+              </details>
             </div>
             <div>
-              <label for="search-status">Status</label>
-              <select id="search-status" multiple size="4">
+              <label id="search-status-label">Status</label>
+              <select id="search-status" multiple hidden aria-hidden="true" tabindex="-1">
                 <option>PEND</option><option>OK</option><option>NAO_EMPLAC</option>
                 <option>SEM_PLAQ</option><option>DIVERG</option><option>N_LOC</option>
                 <option>ALIEN</option><option>BAIXA</option>
               </select>
-              <div id="search-status-active" class="filter-active-values"></div>
+              <details id="search-status-filter" class="multi-filter">
+                <summary class="multi-filter-control" aria-labelledby="search-status-label" aria-controls="search-status-options">
+                  <span id="search-status-values" class="multi-filter-values"></span>
+                  <span id="search-status-placeholder" class="multi-filter-placeholder">Todos os status</span>
+                  <span class="multi-filter-chevron" aria-hidden="true"></span>
+                </summary>
+                <div id="search-status-options" class="multi-filter-options" role="group" aria-label="Escolha um ou mais status"></div>
+              </details>
             </div>
           </div>
           <div class="filter-grid filter-bottom">
@@ -340,6 +354,6 @@
     </form>
   </dialog>
 
-  <script src="{{ url_for('static', filename='app.js') }}?v=19" defer></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v=20" defer></script>
 </body>
 </html>

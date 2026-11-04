@@ -6,6 +6,20 @@ let lastSearchCount = 0;
 const selectedSearchItems = new Set();
 const selectedConferenceItems = new Set();
 const tablePageSize = 50;
+const multiFilterConfigs = {
+  'search-sectors': {
+    filter: '#search-sectors-filter',
+    options: '#search-sectors-options',
+    values: '#search-sectors-values',
+    placeholder: '#search-sectors-placeholder',
+  },
+  'search-status': {
+    filter: '#search-status-filter',
+    options: '#search-status-options',
+    values: '#search-status-values',
+    placeholder: '#search-status-placeholder',
+  },
+};
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -126,6 +140,7 @@ function updateStatusView(data) {
   const setores = data.lista_setores || [];
   setSelectOptions($('#sector-select'), setores, 'Selecione um setor');
   setSelectOptions($('#search-sectors'), setores);
+  renderMultiFilterOptions('search-sectors');
   setSelectOptions($('#add-sector'), setores, 'Selecione um setor');
   setSelectOptions($('#auction-sector'), setores, 'Sem setor informado');
 }
@@ -148,6 +163,43 @@ async function loadStatus() {
 
 function selectedValues(select) {
   return Array.from(select.selectedOptions, option => option.value).filter(Boolean);
+}
+
+function renderMultiFilterSelection(selectId) {
+  const config = multiFilterConfigs[selectId];
+  const selected = selectedValues($(`#${selectId}`));
+  const values = $(config.values);
+  values.replaceChildren();
+  selected.forEach(value => {
+    const chip = document.createElement('span');
+    chip.className = 'multi-filter-chip';
+    chip.textContent = value;
+    values.append(chip);
+  });
+  $(config.placeholder).hidden = selected.length > 0;
+}
+
+function renderMultiFilterOptions(selectId) {
+  const config = multiFilterConfigs[selectId];
+  const select = $(`#${selectId}`);
+  const options = $(config.options);
+  options.replaceChildren();
+  Array.from(select.options).forEach(option => {
+    const label = document.createElement('label');
+    label.className = 'multi-filter-option';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = option.selected;
+    checkbox.addEventListener('change', () => {
+      option.selected = checkbox.checked;
+      renderMultiFilterSelection(selectId);
+      invalidateSearch();
+      updateSearchFilterIndicators();
+    });
+    label.append(checkbox, document.createTextNode(option.textContent));
+    options.append(label);
+  });
+  renderMultiFilterSelection(selectId);
 }
 
 function photoUrl(reference, thumbnail = false) {
@@ -477,8 +529,6 @@ function updateSearchFilterIndicators() {
   const filters = collectSearchFilters();
   const indicators = [
     ['#search-term-active', 'Texto', filters.termo ? [filters.termo] : []],
-    ['#search-sectors-active', 'Setor', filters.setores],
-    ['#search-status-active', 'Status', filters.status],
     ['#search-plaqueta-active', 'Plaqueta', filters.plaqueta ? [filters.plaqueta] : []],
     ['#search-photo-active', 'Foto', filters.foto],
     ['#date-from-active', 'Data inicial', filters.data_inicial ? [formatTableDate(filters.data_inicial)] : []],
@@ -500,6 +550,11 @@ function clearSearchFilters() {
   $('#search-form').reset();
   $('#search-sectors').selectedIndex = -1;
   $('#search-status').selectedIndex = -1;
+  renderMultiFilterOptions('search-sectors');
+  renderMultiFilterOptions('search-status');
+  Object.values(multiFilterConfigs).forEach(({ filter }) => {
+    $(filter).open = false;
+  });
   selectedSearchItems.clear();
   currentView = { type: 'none' };
   $('#search-summary').textContent = '';
@@ -1032,6 +1087,13 @@ $('#search-form').querySelectorAll('input, select').forEach(control => {
   control.addEventListener('change', invalidateSearch);
   control.addEventListener('input', updateSearchFilterIndicators);
   control.addEventListener('change', updateSearchFilterIndicators);
+});
+Object.keys(multiFilterConfigs).forEach(renderMultiFilterOptions);
+document.addEventListener('click', event => {
+  Object.values(multiFilterConfigs).forEach(({ filter }) => {
+    const details = $(filter);
+    if (!details.contains(event.target)) details.open = false;
+  });
 });
 $('#add-item-button').addEventListener('click', () => {
   $('#add-sector').value = $('#sector-select').value;
