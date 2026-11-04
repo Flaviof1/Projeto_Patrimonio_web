@@ -695,7 +695,15 @@ async function sendUpload(form, url, type = null, label = 'Importação concluí
   try {
     const result = await api(url, { method: 'POST', body: data });
     form.reset();
-    notify(`${label} ${result.registros !== undefined ? `${result.registros} registros validados.` : ''}`);
+    if (sourceKey === 'csv') {
+      $('#csv-import-followup').hidden = false;
+      notify(
+        `CSV importado. A base de conferência ainda não foi atualizada. ` +
+        `${result.registros} registros validados.`
+      );
+    } else {
+      notify(`${label} ${result.registros !== undefined ? `${result.registros} registros validados.` : ''}`);
+    }
     await loadStatus();
   } catch (error) {
     notify(error.message, 'error');
@@ -1135,6 +1143,7 @@ $('#prepare-button').addEventListener('click', async event => {
         : '',
     ].filter(Boolean).concat(result.avisos || []);
     notify(notices.join(' '));
+    $('#csv-import-followup').hidden = true;
     await loadStatus();
     await loadBackups();
   } catch (error) {
@@ -1143,6 +1152,7 @@ $('#prepare-button').addEventListener('click', async event => {
     setBusy(button, false);
   }
 });
+$('#prepare-after-csv').addEventListener('click', () => $('#prepare-button').click());
 
 $('#edit-status').addEventListener('change', event => stateFromStatus(event.target.value, $('#edit-state')));
 $('#edit-form').addEventListener('submit', async event => {

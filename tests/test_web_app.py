@@ -112,6 +112,8 @@ def test_aplicacao_inicia_sem_abrir_dados_do_desktop(client):
     assert resposta.get_json()['estado'] == 'sem_dados'
     pagina = client.get('/')
     assert b'alt="F3 Tecnologia"' in pagina.data
+    assert b'id="csv-import-followup"' in pagina.data
+    assert b'id="prepare-after-csv"' in pagina.data
     logo = client.get('/static/f3-tecnologia.svg')
     assert logo.status_code == 200
     assert b'<title id="title">F3 Tecnologia</title>' in logo.data

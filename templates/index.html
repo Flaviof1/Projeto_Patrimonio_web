@@ -6,7 +6,7 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Gestão de Inventário Patrimonial</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=18">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=19">
 </head>
 <body>
   <header class="topbar">
@@ -47,6 +47,10 @@
           <input id="csv-file" name="arquivo" type="file" accept=".csv,text/csv" required>
           <button class="button button-primary" type="submit">Validar e importar CSV</button>
         </form>
+        <div id="csv-import-followup" class="csv-import-followup" role="status" hidden>
+          <p>CSV importado. Para atualizar os itens, pendências e a data da preparação, prepare os dados agora.</p>
+          <button id="prepare-after-csv" class="button button-primary" type="button">Preparar Dados (SH3) agora</button>
+        </div>
       </article>
       <article class="card">
         <p class="eyebrow">Fontes auxiliares opcionais</p>
@@ -354,6 +358,6 @@
     </form>
   </dialog>
 
-  <script src="{{ url_for('static', filename='app.js') }}?v=20" defer></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v=21" defer></script>
 </body>
 </html>
