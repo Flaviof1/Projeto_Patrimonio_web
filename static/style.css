@@ -125,7 +125,8 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .filter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .filter-bottom { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .search-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
-.filter-selection-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; color: var(--muted); font-size: .82rem; }
+.search-term-control { flex: 1; min-width: 0; }
+.filter-active-values { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: .82rem; }
 .filter-selection { padding: 4px 8px; border: 1px solid #b2ccff; border-radius: 999px; background: #eff6ff; color: #1849a9; }
 .auction-import-forms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .auction-disclosure > summary {

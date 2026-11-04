@@ -473,29 +473,26 @@ function collectSearchFilters() {
   };
 }
 
-function updateSearchFilterSummary() {
+function updateSearchFilterIndicators() {
   const filters = collectSearchFilters();
-  const criteria = [
-    ['Texto', filters.termo ? [filters.termo] : []],
-    ['Setor', filters.setores],
-    ['Status', filters.status],
-    ['Plaqueta', filters.plaqueta ? [filters.plaqueta] : []],
-    ['Foto', filters.foto],
-    ['Data inicial', filters.data_inicial ? [formatTableDate(filters.data_inicial)] : []],
-    ['Data final', filters.data_final ? [formatTableDate(filters.data_final)] : []],
-  ].filter(([, values]) => values.length > 0);
-  const summary = $('#search-active-filters');
-  summary.replaceChildren();
-
-  const label = document.createElement('strong');
-  label.textContent = criteria.length ? 'Filtros selecionados:' : 'Nenhum filtro selecionado.';
-  summary.append(label);
-
-  criteria.forEach(([name, values]) => {
-    const item = document.createElement('span');
-    item.className = 'filter-selection';
-    item.textContent = `${name}: ${values.join(', ')}`;
-    summary.append(item);
+  const indicators = [
+    ['#search-term-active', 'Texto', filters.termo ? [filters.termo] : []],
+    ['#search-sectors-active', 'Setor', filters.setores],
+    ['#search-status-active', 'Status', filters.status],
+    ['#search-plaqueta-active', 'Plaqueta', filters.plaqueta ? [filters.plaqueta] : []],
+    ['#search-photo-active', 'Foto', filters.foto],
+    ['#date-from-active', 'Data inicial', filters.data_inicial ? [formatTableDate(filters.data_inicial)] : []],
+    ['#date-to-active', 'Data final', filters.data_final ? [formatTableDate(filters.data_final)] : []],
+  ];
+  indicators.forEach(([selector, label, values]) => {
+    const container = $(selector);
+    container.replaceChildren();
+    values.forEach(value => {
+      const item = document.createElement('span');
+      item.className = 'filter-selection';
+      item.textContent = `${label}: ${value}`;
+      container.append(item);
+    });
   });
 }
 
@@ -509,7 +506,7 @@ function clearSearchFilters() {
   $('#search-table').replaceChildren();
   $('#search-pagination').replaceChildren();
   $('#search-report-result').replaceChildren();
-  updateSearchFilterSummary();
+  updateSearchFilterIndicators();
   invalidateSearch();
   updateBulkDeleteButton();
 }
@@ -1033,8 +1030,8 @@ $('#delete-selected-conference-items').addEventListener('click', () => deleteSel
 $('#search-form').querySelectorAll('input, select').forEach(control => {
   control.addEventListener('input', invalidateSearch);
   control.addEventListener('change', invalidateSearch);
-  control.addEventListener('input', updateSearchFilterSummary);
-  control.addEventListener('change', updateSearchFilterSummary);
+  control.addEventListener('input', updateSearchFilterIndicators);
+  control.addEventListener('change', updateSearchFilterIndicators);
 });
 $('#add-item-button').addEventListener('click', () => {
   $('#add-sector').value = $('#sector-select').value;
@@ -1141,4 +1138,4 @@ function invalidateSearch() {
 loadStatus();
 loadBackups();
 loadAuctionList();
-updateSearchFilterSummary();
+updateSearchFilterIndicators();

@@ -6,7 +6,7 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Gestão de Inventário Patrimonial</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=16">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=17">
 </head>
 <body>
   <header class="topbar">
@@ -147,9 +147,12 @@
         <p class="eyebrow">Consulta</p>
         <h2>Busca geral de bens</h2>
         <form id="search-form">
-          <label for="search-term">Texto para buscar</label>
           <div class="inline-form">
-            <input id="search-term" type="search" placeholder="Código, plaqueta, descrição, observação…">
+            <div class="search-term-control">
+              <label for="search-term">Texto para buscar</label>
+              <input id="search-term" type="search" placeholder="Código, plaqueta, descrição, observação…">
+              <div id="search-term-active" class="filter-active-values"></div>
+            </div>
             <button class="button button-primary" type="submit">Buscar</button>
             <button id="clear-search" class="button button-muted" type="button">Limpar filtros</button>
           </div>
@@ -157,6 +160,7 @@
             <div>
               <label for="search-sectors">Setores</label>
               <select id="search-sectors" multiple size="4"></select>
+              <div id="search-sectors-active" class="filter-active-values"></div>
             </div>
             <div>
               <label for="search-status">Status</label>
@@ -165,6 +169,7 @@
                 <option>SEM_PLAQ</option><option>DIVERG</option><option>N_LOC</option>
                 <option>ALIEN</option><option>BAIXA</option>
               </select>
+              <div id="search-status-active" class="filter-active-values"></div>
             </div>
           </div>
           <div class="filter-grid filter-bottom">
@@ -175,6 +180,7 @@
                 <option value="Com plaqueta">Com plaqueta</option>
                 <option value="Sem plaqueta">Sem plaqueta</option>
               </select>
+              <div id="search-plaqueta-active" class="filter-active-values"></div>
             </div>
             <div>
               <label for="search-photo">Foto</label>
@@ -182,17 +188,19 @@
                 <option value="">Todos</option><option value="Com foto">Com foto</option>
                 <option value="Sem foto">Sem foto</option>
               </select>
+              <div id="search-photo-active" class="filter-active-values"></div>
             </div>
             <div>
               <label for="date-from">Data inicial</label>
               <input id="date-from" type="date">
+              <div id="date-from-active" class="filter-active-values"></div>
             </div>
             <div>
               <label for="date-to">Data final</label>
               <input id="date-to" type="date">
+              <div id="date-to-active" class="filter-active-values"></div>
             </div>
           </div>
-          <div id="search-active-filters" class="filter-selection-summary" aria-live="polite"></div>
         </form>
         <div id="search-summary" class="muted"></div>
         <div class="search-actions">
