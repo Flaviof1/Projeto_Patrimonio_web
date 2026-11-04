@@ -249,7 +249,8 @@ td[data-field="ALTERADO_EM"] { white-space: nowrap; font-variant-numeric: tabula
   .backup-row { align-items: flex-start; flex-direction: column; }
   .modal-actions { flex-direction: column; }
   .modal-actions .button { width: 100%; }
-  td[data-field="Descrição"] {
+  td[data-field="Descrição"],
+  td[data-field="Setor Atual"] {
     min-width: 220px;
     line-height: 1.45;
     overflow-wrap: break-word;
