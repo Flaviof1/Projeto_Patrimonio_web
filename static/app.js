@@ -503,9 +503,15 @@ function clearSearchFilters() {
   $('#search-form').reset();
   $('#search-sectors').selectedIndex = -1;
   $('#search-status').selectedIndex = -1;
+  selectedSearchItems.clear();
+  currentView = { type: 'none' };
+  $('#search-summary').textContent = '';
+  $('#search-table').replaceChildren();
+  $('#search-pagination').replaceChildren();
+  $('#search-report-result').replaceChildren();
   updateSearchFilterSummary();
   invalidateSearch();
-  runSearch();
+  updateBulkDeleteButton();
 }
 
 async function createSearchReport(formato, button) {
