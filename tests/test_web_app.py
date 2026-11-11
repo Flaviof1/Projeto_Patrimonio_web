@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import tempfile
@@ -674,6 +675,47 @@ def test_observacao_item_leilao_tem_limite_de_caracteres(client):
     assert 'observação' in resposta.get_json()['error'].lower()
 
 
+def test_inclusao_manual_leilao_cria_item_individual_para_cada_unidade(client):
+    lote = post(client, '/api/leilao/lotes', json={'nome': 'Cadeiras'})
+    lote_id = lote.get_json()['lote']['id']
+
+    resposta = post(
+        client,
+        '/api/leilao/manual',
+        json={
+            'descricao': 'Cadeira de escritório',
+            'setor': 'Setor A',
+            'quantidade': 3,
+            'lote_id': lote_id,
+        },
+    )
+
+    assert resposta.status_code == 200, resposta.get_json()
+    payload = resposta.get_json()
+    assert payload['quantidade'] == 3
+    assert len(payload['itens']) == 3
+    assert len({item['id'] for item in payload['itens']}) == 3
+    assert all(item['descricao'] == 'Cadeira de escritório' for item in payload['itens'])
+    assert all(item['lote_id'] == lote_id for item in payload['itens'])
+    assert all(item['situacao'] == 'PENDENTE_IDENTIFICACAO' for item in payload['itens'])
+    lista = client.get('/api/leilao').get_json()
+    assert lista['total'] == 3
+    assert len(lista['itens']) == 3
+
+
+@pytest.mark.parametrize('quantidade', [0, -1, 1000, 1.5, True, 'abc'])
+def test_inclusao_manual_leilao_rejeita_quantidade_invalida(client, quantidade):
+    resposta = post(
+        client,
+        '/api/leilao/manual',
+        json={'descricao': 'Cadeira', 'quantidade': quantidade},
+    )
+
+    assert resposta.status_code == 400
+    assert 'quantidade' in resposta.get_json()['error'].lower()
+    assert client.get('/api/leilao').get_json()['total'] == 0
+
+
 def test_item_leilao_pode_ser_editado_e_excluido_sem_alterar_base(client, monkeypatch):
     base = pd.DataFrame([{
         'Plaqueta': '000123',
@@ -722,6 +764,113 @@ def test_item_leilao_pode_ser_editado_e_excluido_sem_alterar_base(client, monkey
     assert client.get('/api/leilao').get_json()['itens'] == []
     nao_encontrado = post(client, f'/api/leilao/{item_id}/excluir', json={})
     assert nao_encontrado.status_code == 404
+
+
+def test_lotes_leilao_organizam_itens_sem_alterar_cadastro_patrimonial(client):
+    legado = [{
+        'id': 'item-legado',
+        'descricao': 'Mesa antiga',
+        'plaqueta_informada': '',
+        'setor': '',
+        'data': '',
+        'observacao': '',
+        'situacao': 'PENDENTE_IDENTIFICACAO',
+        'plaqueta_vinculada': '',
+    }]
+    DADOS_TRABALHO_DIR.mkdir(parents=True, exist_ok=True)
+    app_module._arquivo_leilao().write_text(
+        json.dumps(legado),
+        encoding='utf-8',
+    )
+
+    primeiro = post(client, '/api/leilao/lotes', json={'nome': 'Móveis'})
+    segundo = post(client, '/api/leilao/lotes', json={'nome': 'Equipamentos'})
+    assert primeiro.status_code == 200
+    assert segundo.status_code == 200
+    id_primeiro = primeiro.get_json()['lote']['id']
+    id_segundo = segundo.get_json()['lote']['id']
+
+    incluido = post(
+        client,
+        '/api/leilao/manual',
+        json={'descricao': 'Cadeira', 'lote_id': id_primeiro},
+    )
+    assert incluido.status_code == 200, incluido.get_json()
+    id_item = incluido.get_json()['item']['id']
+
+    itens_iniciais = client.get('/api/leilao').get_json()
+    assert [lote['nome'] for lote in itens_iniciais['lotes']] == [
+        'Móveis',
+        'Equipamentos',
+    ]
+    assert itens_iniciais['itens'][0]['lote_id'] is None
+
+    mover = post(
+        client,
+        f'/api/leilao/{id_item}/lote',
+        json={'lote_id': id_segundo},
+    )
+    assert mover.status_code == 200
+    remover = post(
+        client,
+        f'/api/leilao/{id_item}/lote',
+        json={'lote_id': None},
+    )
+    assert remover.status_code == 200
+    assert client.get('/api/leilao').get_json()['itens'][1]['lote_id'] is None
+
+    renomear = post(
+        client,
+        f'/api/leilao/lotes/{id_segundo}/editar',
+        json={'nome': 'Eletrônicos'},
+    )
+    assert renomear.status_code == 200
+    reordenar = post(
+        client,
+        '/api/leilao/lotes/reordenar',
+        json={'ids': [id_segundo, id_primeiro]},
+    )
+    assert reordenar.status_code == 200
+    lotes_ordenados = client.get('/api/leilao').get_json()['lotes']
+    assert [(lote['numero'], lote['nome']) for lote in lotes_ordenados] == [
+        (1, 'Eletrônicos'),
+        (2, 'Móveis'),
+    ]
+
+    excluir_com_item = post(
+        client,
+        f'/api/leilao/lotes/{id_primeiro}/excluir',
+        json={},
+    )
+    assert excluir_com_item.status_code == 200
+    excluir_item = post(client, f'/api/leilao/{id_item}/excluir', json={})
+    assert excluir_item.status_code == 200
+    estado = client.get('/api/leilao').get_json()
+    assert [item['id'] for item in estado['itens']] == ['item-legado']
+    assert estado['itens'][0]['descricao'] == 'Mesa antiga'
+    assert estado['lotes'][0]['nome'] == 'Eletrônicos'
+
+
+def test_importacao_de_leilao_pode_adicionar_itens_diretamente_a_um_lote(client):
+    lote = post(client, '/api/leilao/lotes', json={'nome': 'Lote importado'})
+    lote_id = lote.get_json()['lote']['id']
+    importacao = post(
+        client,
+        '/api/leilao/importar',
+        data={
+            'lote_id': lote_id,
+            'arquivo': (
+                BytesIO('Descrição;Setor\nCadeira;Setor A\n'.encode()),
+                'leilao.csv',
+            ),
+        },
+        content_type='multipart/form-data',
+    )
+
+    assert importacao.status_code == 200, importacao.get_json()
+    itens = client.get('/api/leilao').get_json()['itens']
+    assert len(itens) == 1
+    assert itens[0]['lote_id'] == lote_id
 
 
 def test_rota_entrega_miniatura_redimensionada(client):

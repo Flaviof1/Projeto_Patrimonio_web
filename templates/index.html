@@ -6,7 +6,7 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Gestão de Inventário Patrimonial</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=19">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=21">
 </head>
 <body>
   <header class="topbar">
@@ -81,16 +81,25 @@
             </span>
             <span id="auction-summary" class="auction-summary">Carregando itens…</span>
           </summary>
-          <p>Importe CSV ou Excel (.xlsx) ou adicione um item manualmente. A descrição é obrigatória; plaqueta, setor, data e observação são opcionais. Para procurar bens parecidos, use “Buscar possíveis correspondências” no item desejado. As sugestões precisam ser confirmadas e não alteram status nem dão baixa no patrimônio.</p>
+          <p>Crie lotes e escolha um deles ao importar ou incluir itens; se preferir, deixe itens disponíveis para organizar depois. A numeração acompanha a ordem dos lotes. Remover do lote mantém o item disponível; excluir do sistema remove somente da lista de leilão, sem alterar o cadastro patrimonial.</p>
+          <form id="auction-lot-form" class="inline-form auction-lot-form">
+            <label for="auction-lot-name">Nome do novo lote</label>
+            <input id="auction-lot-name" maxlength="80" required>
+            <button class="button button-secondary" type="submit">Criar lote</button>
+          </form>
           <div class="auction-import-forms">
             <form id="auction-xlsx-form" class="upload-form compact-form">
               <label for="auction-xlsx-file">Lista de leilão (Excel)</label>
               <input id="auction-xlsx-file" type="file" accept=".xlsx" required>
+              <label for="auction-xlsx-lot">Adicionar importados ao lote (opcional)</label>
+              <select id="auction-xlsx-lot" class="auction-target-lot"><option value="">Disponíveis, sem lote</option></select>
               <button class="button button-secondary" type="submit">Importar Excel</button>
             </form>
             <form id="auction-csv-form" class="upload-form compact-form">
               <label for="auction-csv-file">Lista de leilão (CSV)</label>
               <input id="auction-csv-file" type="file" accept=".csv,text/csv" required>
+              <label for="auction-csv-lot">Adicionar importados ao lote (opcional)</label>
+              <select id="auction-csv-lot" class="auction-target-lot"><option value="">Disponíveis, sem lote</option></select>
               <button class="button button-secondary" type="submit">Importar CSV</button>
             </form>
           </div>
@@ -112,6 +121,14 @@
             <div>
               <label for="auction-date">Data (opcional)</label>
               <input id="auction-date" type="date">
+            </div>
+            <div>
+              <label for="auction-quantity">Quantidade de itens (1 a 999)</label>
+              <input id="auction-quantity" type="number" min="1" max="999" step="1" value="1" required>
+            </div>
+            <div>
+              <label for="auction-manual-lot">Adicionar ao lote (opcional)</label>
+              <select id="auction-manual-lot" class="auction-target-lot"><option value="">Disponíveis, sem lote</option></select>
             </div>
             <div class="auction-observation-field">
               <label for="auction-observation">Observação (opcional)</label>
@@ -358,6 +375,6 @@
     </form>
   </dialog>
 
-  <script src="{{ url_for('static', filename='app.js') }}?v=21" defer></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v=24" defer></script>
 </body>
 </html>

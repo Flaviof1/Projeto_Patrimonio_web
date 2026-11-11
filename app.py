@@ -155,32 +155,80 @@ def _arquivo_leilao():
     return DADOS_TRABALHO_DIR / 'itens_leilao.json'
 
 
-def _carregar_itens_leilao():
+def _carregar_estado_leilao():
     caminho = _arquivo_leilao()
     if not caminho.exists():
-        return []
+        return {'itens': [], 'lotes': []}
     try:
         dados = json.loads(caminho.read_text(encoding='utf-8'))
     except (OSError, json.JSONDecodeError) as error:
         raise ValueError('Não foi possível ler a lista de itens para leilão.') from error
-    if not isinstance(dados, list) or any(not isinstance(item, dict) for item in dados):
+    if isinstance(dados, list):
+        itens, lotes = dados, []
+    elif isinstance(dados, dict):
+        itens, lotes = dados.get('itens'), dados.get('lotes')
+    else:
+        itens, lotes = None, None
+    if (
+        not isinstance(itens, list)
+        or any(not isinstance(item, dict) for item in itens)
+        or not isinstance(lotes, list)
+        or any(not isinstance(lote, dict) for lote in lotes)
+    ):
         raise ValueError('A lista de itens para leilão está em formato inválido.')
-    return dados
+    ids_lotes = [lote.get('id') for lote in lotes]
+    if (
+        any(not isinstance(identificador, str) or not identificador for identificador in ids_lotes)
+        or len(ids_lotes) != len(set(ids_lotes))
+    ):
+        raise ValueError('A lista de lotes para leilão está em formato inválido.')
+    for item in itens:
+        item.setdefault('lote_id', None)
+        if item['lote_id'] is not None and item['lote_id'] not in ids_lotes:
+            raise ValueError('Um item está vinculado a um lote inexistente.')
+    return {'itens': itens, 'lotes': lotes}
 
 
-def _salvar_itens_leilao(itens):
+def _carregar_itens_leilao():
+    return _carregar_estado_leilao()['itens']
+
+
+def _salvar_estado_leilao(estado):
     caminho = _arquivo_leilao()
     caminho.parent.mkdir(parents=True, exist_ok=True)
     temporario = caminho.with_suffix('.json.tmp')
     try:
         temporario.write_text(
-            json.dumps(itens, ensure_ascii=False, indent=2),
+            json.dumps(estado, ensure_ascii=False, indent=2),
             encoding='utf-8',
         )
         os.replace(temporario, caminho)
     except OSError:
         temporario.unlink(missing_ok=True)
         raise
+
+
+def _salvar_itens_leilao(itens):
+    estado = _carregar_estado_leilao()
+    estado['itens'] = itens
+    _salvar_estado_leilao(estado)
+
+
+def _lote_leilao_valido(lotes, identificador):
+    if identificador in (None, ''):
+        return None
+    if not isinstance(identificador, str) or not any(
+        lote.get('id') == identificador for lote in lotes
+    ):
+        abort(400, description='Selecione um lote existente ou deixe o item sem lote.')
+    return identificador
+
+
+def _lotes_com_numeracao(lotes):
+    return [
+        {**lote, 'numero': indice}
+        for indice, lote in enumerate(lotes, start=1)
+    ]
 
 
 def _normalizar_cabecalho_leilao(valor):
@@ -1096,10 +1144,104 @@ def create_app():
     @aplicacao.get('/api/leilao')
     def listar_itens_leilao():
         try:
-            itens = _carregar_itens_leilao()
+            estado = _carregar_estado_leilao()
         except ValueError as error:
             abort(409, description=str(error))
-        return jsonify(total=len(itens), itens=itens)
+        return jsonify(
+            total=len(estado['itens']),
+            itens=estado['itens'],
+            lotes=_lotes_com_numeracao(estado['lotes']),
+        )
+
+    @aplicacao.post('/api/leilao/lotes')
+    @_csrf_required
+    def criar_lote_leilao():
+        dados = request.get_json(silent=True)
+        nome = str(dados.get('nome', '') if isinstance(dados, dict) else '').strip()
+        if not nome or len(nome) > 80:
+            abort(400, description='Informe um nome de lote de até 80 caracteres.')
+        try:
+            estado = _carregar_estado_leilao()
+        except ValueError as error:
+            abort(409, description=str(error))
+        try:
+            lote = {'id': token_hex(12), 'nome': nome}
+            estado['lotes'].append(lote)
+            _salvar_estado_leilao(estado)
+        except OSError as error:
+            abort(500, description=f'Não foi possível criar o lote: {error}')
+        return jsonify(
+            mensagem='Lote criado.',
+            lote={**lote, 'numero': len(estado['lotes'])},
+        )
+
+    @aplicacao.post('/api/leilao/lotes/reordenar')
+    @_csrf_required
+    def reordenar_lotes_leilao():
+        dados = request.get_json(silent=True)
+        ids = dados.get('ids') if isinstance(dados, dict) else None
+        if not isinstance(ids, list) or any(not isinstance(item, str) for item in ids):
+            abort(400, description='Informe a ordem completa dos lotes.')
+        try:
+            estado = _carregar_estado_leilao()
+        except ValueError as error:
+            abort(409, description=str(error))
+        ids_existentes = [lote.get('id') for lote in estado['lotes']]
+        if len(ids) != len(ids_existentes) or set(ids) != set(ids_existentes):
+            abort(400, description='A ordem deve conter cada lote existente uma única vez.')
+        lotes_por_id = {lote['id']: lote for lote in estado['lotes']}
+        estado['lotes'] = [lotes_por_id[identificador] for identificador in ids]
+        try:
+            _salvar_estado_leilao(estado)
+        except OSError as error:
+            abort(500, description=f'Não foi possível reordenar os lotes: {error}')
+        return jsonify(mensagem='Ordem dos lotes atualizada.', lotes=_lotes_com_numeracao(estado['lotes']))
+
+    @aplicacao.post('/api/leilao/lotes/<identificador>/editar')
+    @_csrf_required
+    def editar_lote_leilao(identificador):
+        dados = request.get_json(silent=True)
+        nome = str(dados.get('nome', '') if isinstance(dados, dict) else '').strip()
+        if not nome or len(nome) > 80:
+            abort(400, description='Informe um nome de lote de até 80 caracteres.')
+        try:
+            estado = _carregar_estado_leilao()
+        except ValueError as error:
+            abort(409, description=str(error))
+        lote = next(
+            (registro for registro in estado['lotes'] if registro.get('id') == identificador),
+            None,
+        )
+        if lote is None:
+            abort(404, description='Lote não encontrado.')
+        lote['nome'] = nome
+        try:
+            _salvar_estado_leilao(estado)
+        except OSError as error:
+            abort(500, description=f'Não foi possível renomear o lote: {error}')
+        return jsonify(mensagem='Lote atualizado.', lote=lote)
+
+    @aplicacao.post('/api/leilao/lotes/<identificador>/excluir')
+    @_csrf_required
+    def excluir_lote_leilao(identificador):
+        try:
+            estado = _carregar_estado_leilao()
+        except ValueError as error:
+            abort(409, description=str(error))
+        lote = next(
+            (registro for registro in estado['lotes'] if registro.get('id') == identificador),
+            None,
+        )
+        if lote is None:
+            abort(404, description='Lote não encontrado.')
+        if any(item.get('lote_id') == identificador for item in estado['itens']):
+            abort(409, description='Remova os itens do lote antes de excluí-lo.')
+        estado['lotes'].remove(lote)
+        try:
+            _salvar_estado_leilao(estado)
+        except OSError as error:
+            abort(500, description=f'Não foi possível excluir o lote: {error}')
+        return jsonify(mensagem='Lote excluído.')
 
     @aplicacao.get('/api/leilao/<identificador>/sugestoes')
     def sugerir_vinculos_leilao(identificador):
@@ -1121,22 +1263,31 @@ def create_app():
     @aplicacao.post('/api/leilao/importar')
     @_csrf_required
     def importar_lista_leilao():
+        arquivo = request.files.get('arquivo')
+        if arquivo is None or not arquivo.filename:
+            abort(400, description='Selecione um arquivo Excel ou CSV.')
         try:
-            arquivo = request.files.get('arquivo')
-            if arquivo is None or not arquivo.filename:
-                abort(400, description='Selecione um arquivo Excel ou CSV.')
             novos = _ler_arquivo_leilao(arquivo)
-            itens = _carregar_itens_leilao()
-            itens.extend(novos)
-            _salvar_itens_leilao(itens)
         except ValueError as error:
             abort(400, description=str(error))
+        try:
+            estado = _carregar_estado_leilao()
+        except ValueError as error:
+            abort(409, description=str(error))
+        lote_id = _lote_leilao_valido(
+            estado['lotes'], request.form.get('lote_id')
+        )
+        for item in novos:
+            item['lote_id'] = lote_id
+        estado['itens'].extend(novos)
+        try:
+            _salvar_estado_leilao(estado)
         except OSError as error:
             abort(500, description=f'Não foi possível salvar a lista de leilão: {error}')
         return jsonify(
             mensagem=f'{len(novos)} item(ns) importado(s) como pendentes de identificação.',
             importados=len(novos),
-            total=len(itens),
+            total=len(estado['itens']),
         )
 
     @aplicacao.post('/api/leilao/manual')
@@ -1148,11 +1299,19 @@ def create_app():
         descricao = str(dados.get('descricao', '') or '').strip()
         if not descricao or len(descricao) > 500:
             abort(400, description='Informe uma descrição de até 500 caracteres.')
+        valor_quantidade = dados.get('quantidade', 1)
+        if isinstance(valor_quantidade, bool) or not isinstance(valor_quantidade, (int, str)):
+            abort(400, description='A quantidade deve ser um número inteiro entre 1 e 999.')
+        try:
+            quantidade = int(valor_quantidade)
+        except (TypeError, ValueError):
+            abort(400, description='A quantidade deve ser um número inteiro entre 1 e 999.')
+        if isinstance(dados.get('quantidade', 1), bool) or quantidade < 1 or quantidade > 999:
+            abort(400, description='A quantidade deve ser um número inteiro entre 1 e 999.')
         observacao = str(dados.get('observacao', '') or '').strip()
         if len(observacao) > 2000:
             abort(400, description='A observação deve ter até 2000 caracteres.')
         item = {
-            'id': token_hex(12),
             'plaqueta_informada': str(dados.get('plaqueta', '') or '').strip()[:100],
             'descricao': descricao,
             'setor': str(dados.get('setor', '') or '').strip()[:255],
@@ -1162,12 +1321,29 @@ def create_app():
             'plaqueta_vinculada': '',
         }
         try:
-            itens = _carregar_itens_leilao()
-            itens.append(item)
-            _salvar_itens_leilao(itens)
-        except (OSError, ValueError) as error:
+            estado = _carregar_estado_leilao()
+        except ValueError as error:
+            abort(409, description=str(error))
+        item['lote_id'] = _lote_leilao_valido(
+            estado['lotes'], dados.get('lote_id')
+        )
+        novos = [{**item, 'id': token_hex(12)} for _ in range(quantidade)]
+        estado['itens'].extend(novos)
+        try:
+            _salvar_estado_leilao(estado)
+        except OSError as error:
             abort(500, description=f'Não foi possível salvar o item: {error}')
-        return jsonify(mensagem='Item adicionado como pendente de identificação.', item=item)
+        mensagem = (
+            'Item adicionado como pendente de identificação.'
+            if quantidade == 1
+            else f'{quantidade} itens adicionados como pendentes de identificação.'
+        )
+        return jsonify(
+            mensagem=mensagem,
+            item=novos[0],
+            itens=novos,
+            quantidade=quantidade,
+        )
 
     @aplicacao.post('/api/leilao/<identificador>/editar')
     @_csrf_required
@@ -1229,6 +1405,32 @@ def create_app():
         except OSError as error:
             abort(500, description=f'Não foi possível excluir o item: {error}')
         return jsonify(mensagem='Item removido da lista de leilão.')
+
+    @aplicacao.post('/api/leilao/<identificador>/lote')
+    @_csrf_required
+    def mover_item_leilao(identificador):
+        dados = request.get_json(silent=True)
+        if not isinstance(dados, dict):
+            abort(400, description='Informe o lote de destino do item.')
+        try:
+            estado = _carregar_estado_leilao()
+        except ValueError as error:
+            abort(409, description=str(error))
+        item = next(
+            (registro for registro in estado['itens'] if registro.get('id') == identificador),
+            None,
+        )
+        if item is None:
+            abort(404, description='Item da lista de leilão não encontrado.')
+        item['lote_id'] = _lote_leilao_valido(estado['lotes'], dados.get('lote_id'))
+        try:
+            _salvar_estado_leilao(estado)
+        except OSError as error:
+            abort(500, description=f'Não foi possível mover o item: {error}')
+        mensagem = 'Item removido do lote e mantido na lista de disponíveis.'
+        if item['lote_id']:
+            mensagem = 'Item movido para o lote selecionado.'
+        return jsonify(mensagem=mensagem, item=item)
 
     @aplicacao.post('/api/leilao/<identificador>/vincular')
     @_csrf_required

@@ -2,7 +2,8 @@
 
 Aplicação web em português para preparar e consultar o cadastro patrimonial,
 conferir bens por setor, registrar fotos e observações, pesquisar itens,
-acompanhar uma lista separada de bens previstos para leilão e gerar relatórios.
+organizar em lotes uma lista separada de bens previstos para leilão e gerar
+relatórios.
 
 O aplicativo roda no computador servidor. Os demais dispositivos acessam a
 interface pelo navegador, na rede local ou por uma rede privada Tailscale.

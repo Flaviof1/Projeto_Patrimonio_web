@@ -110,6 +110,8 @@ input, select, textarea {
   color: var(--ink);
   font: inherit;
 }
+input[type="checkbox"],
+input[type="radio"] { width: 20px; min-height: 20px; margin: 0; }
 input[type="file"] { padding: 6px; font-size: .82rem; }
 select[multiple] { min-height: 112px; }
 textarea { resize: vertical; }
@@ -169,7 +171,15 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .auction-manual-form { align-items: end; margin-top: 14px; }
 .auction-manual-form .auction-observation-field { grid-column: 1 / -1; }
 .auction-manual-form button { align-self: end; }
+.auction-lot-form { align-items: end; margin: 14px 0; }
+.auction-lot-form input { min-width: 180px; }
 .auction-list { width: 100%; margin-top: 12px; overflow: auto; }
+.auction-lot-group { margin-top: 18px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+.auction-lot-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.auction-lot-heading h3,
+.auction-lot-group > h3 { margin: 0 0 10px; font-size: 1rem; }
+.auction-lot-heading h3 { margin: 0; }
+.auction-order-button { min-width: 40px; }
 .auction-link-controls { display: grid; min-width: 260px; gap: 6px; }
 .auction-link-controls .button { justify-self: start; }
 .auction-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -177,6 +187,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 @media (max-width: 640px) {
   .auction-disclosure > summary { align-items: flex-start; }
   .auction-summary { text-align: right; }
+  .auction-lot-heading { align-items: flex-start; flex-direction: column; }
 }
 
 .button {
@@ -206,7 +217,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .full-width { width: 100%; margin-top: 16px; }
 .icon-button { border: 0; background: transparent; color: var(--muted); font-size: 1.6rem; cursor: pointer; }
 
-.table-wrap { width: 100%; margin-top: 12px; overflow: auto; }
+.table-wrap { width: 100%; margin-top: 12px; overflow: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
 .table-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; font-size: .85rem; color: var(--muted); }
 table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 th, td { max-width: 310px; padding: 9px 10px; border-bottom: 1px solid #e7ecf3; text-align: left; vertical-align: top; }
@@ -263,24 +274,118 @@ td[data-field="ALTERADO_EM"] { white-space: nowrap; font-variant-numeric: tabula
 
 @media (max-width: 900px) {
   .two-columns { grid-template-columns: 1fr; }
+  .filter-bottom { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 620px) {
-  .topbar { align-items: stretch; flex-direction: column; padding: 22px 18px; }
+  body { min-width: 320px; }
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+    padding: max(18px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 18px max(16px, env(safe-area-inset-left));
+  }
+  .topbar h1 { max-width: 18ch; font-size: clamp(1.5rem, 7vw, 1.9rem); }
   .topbar-brand { align-self: stretch; justify-items: end; gap: 8px; }
   .topbar-brand img { width: 142px; }
-  main { padding: 14px; }
-  .card { padding: 16px; }
+  main { width: 100%; padding: 12px max(12px, env(safe-area-inset-right)) 20px max(12px, env(safe-area-inset-left)); }
+  .grid { gap: 12px; margin-top: 12px; }
+  .card { padding: 14px; border-radius: 12px; }
+  .section-heading { align-items: flex-start; }
+  .summary { font-size: 1.08rem; overflow-wrap: anywhere; }
+  input, select, textarea { min-height: 44px; font-size: 16px; }
+  input[type="file"] { min-height: 44px; font-size: 16px; }
+  input[type="checkbox"],
+  input[type="radio"] { width: 24px; min-height: 24px; flex: 0 0 24px; }
+  .button { min-height: 44px; }
   .inline-form { align-items: stretch; flex-direction: column; }
   .filter-grid, .filter-bottom { grid-template-columns: 1fr; gap: 4px; }
   .auction-import-forms { grid-template-columns: 1fr; gap: 4px; }
-  .backup-row { align-items: flex-start; flex-direction: column; }
-  .modal-actions { flex-direction: column; }
-  .modal-actions .button { width: 100%; }
-  td[data-field="Descrição"],
-  td[data-field="Setor Atual"] {
-    min-width: 220px;
-    line-height: 1.45;
-    overflow-wrap: break-word;
+  .auction-disclosure > summary { gap: 8px; }
+  .auction-title { font-size: 1rem; }
+  .auction-summary { max-width: 40%; font-size: .78rem; }
+  .auction-lot-group { padding: 10px; }
+  .auction-row-actions { width: 100%; }
+  .auction-row-actions .button { flex: 1 1 auto; }
+  .auction-link-controls { min-width: 0; }
+  .auction-link-controls .button { width: 100%; justify-self: stretch; }
+  .search-actions { align-items: stretch; }
+  .search-actions > .button { flex: 1 1 100%; }
+  .table-wrap,
+  .auction-list { overflow: visible; }
+  .table-wrap table,
+  .auction-list table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    table-layout: auto;
+    font-size: .9rem;
+  }
+  .table-wrap thead,
+  .auction-list thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+  .table-wrap tbody,
+  .auction-list tbody { display: grid; gap: 12px; }
+  .table-wrap tbody tr,
+  .auction-list tbody tr {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: 0 2px 6px #14213d0b;
+  }
+  .table-wrap td,
+  .auction-list td {
+    display: grid;
+    grid-template-columns: minmax(104px, 34%) minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none;
+    padding: 9px 10px;
+    border-bottom: 1px solid #e7ecf3;
+    overflow-wrap: anywhere;
     word-break: normal;
   }
+  .table-wrap td::before,
+  .auction-list td::before {
+    content: attr(data-label);
+    color: #475467;
+    font-size: .78rem;
+    font-weight: 700;
+  }
+  .table-wrap td[data-label="Selecionar"],
+  .table-wrap td[data-label="Foto"] { align-items: center; }
+  .table-wrap td[data-label="Ação"] .button,
+  .auction-list td .button { width: 100%; }
+  .table-wrap .table-observation { min-width: 0; }
+  .table-wrap .table-actions-cell { min-width: 0; }
+  .table-wrap .conference-table { overflow: visible; }
+  .auction-list { overflow-x: visible; }
+  .backup-row { align-items: flex-start; flex-direction: column; }
+  .notifications {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: max(12px, env(safe-area-inset-left));
+    width: auto;
+  }
+  .modal {
+    width: calc(100vw - 24px);
+    max-width: none;
+    max-height: 90dvh;
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  .modal-actions { flex-direction: column; }
+  .modal-actions .button { width: 100%; }
+  .table-pagination { flex-wrap: wrap; gap: 8px; }
 }

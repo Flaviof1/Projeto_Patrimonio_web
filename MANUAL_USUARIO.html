@@ -105,6 +105,7 @@
         <li><a href="#preparar">Preparar ou atualizar a base</a></li>
         <li><a href="#auditoria">Auditar por setor</a></li>
         <li><a href="#busca">Pesquisar e filtrar</a></li>
+        <li><a href="#leilao">Organizar itens de leilão em lotes</a></li>
         <li><a href="#status">Entender os status</a></li>
         <li><a href="#fotos">Fotos</a></li>
         <li><a href="#relatorios">Relatórios</a></li>
@@ -128,6 +129,9 @@
       apresenta a situação da base: origem ativa (MySQL ou planilha), total de
       bens, setores, quantidade por status, data da última preparação, fontes
       importadas e disponibilidade das fotos.</p>
+      <p>A interface se adapta a computadores e celulares. Em telas pequenas,
+      os registros aparecem em cartões para facilitar a leitura e o toque;
+      tabelas e formulários mantêm seus campos e ações disponíveis.</p>
       <p>No ambiente atual, o MySQL local do PC servidor é a fonte ativa. As
       planilhas de conferência são mantidas como espelhos para compatibilidade e
       recuperação. Os outros aparelhos acessam o Flask pelo navegador; não se
@@ -352,6 +356,28 @@ set PATRIMONIO_STORAGE=mysql
       respeitando os filtros atuais.</p>
       <p>O relatório gerencial é diferente: ele resume toda a base, não apenas os
       resultados da Busca Geral.</p>
+    </article>
+
+    <article id="leilao">
+      <h2>Itens previstos para leilão e lotes</h2>
+      <p>Na seção <strong>Itens previstos para leilão</strong>, crie um lote
+      informando o nome. A numeração é automática e acompanha a ordem exibida;
+      use as setas para reordenar. Os lotes podem ser renomeados e os lotes
+      vazios podem ser excluídos.</p>
+      <p>Ao adicionar itens manualmente, informe a quantidade desejada: cada
+      unidade é criada como um item individual, com a mesma descrição e os demais
+      dados informados, podendo ser organizada ou excluída separadamente. Ao
+      importar uma planilha, cada linha também permanece como um item individual.
+      Escolha opcionalmente um lote ou deixe os itens sem lote e
+      organizá-los depois. Em cada item, use <strong>Mover item</strong> para
+      colocá-lo em outro lote ou em “Disponíveis, sem lote”. A ação
+      <strong>Remover do lote</strong> mantém o item cadastrado para organização
+      posterior. Para apagar o item da lista de leilão, use
+      <strong>Excluir do sistema</strong> e confirme; essa ação não altera o
+      cadastro patrimonial nem dá baixa no bem.</p>
+      <p>O lote agrupa itens para organização do leilão. A confirmação de vínculo
+      com uma plaqueta patrimonial continua sendo uma ação separada e não altera
+      o status do bem.</p>
     </article>
 
     <article id="status">

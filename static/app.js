@@ -267,7 +267,7 @@ function makeTable(container, items) {
   const tbody = document.createElement('tbody');
   items.forEach(item => {
     const row = document.createElement('tr');
-    columns.forEach(([key]) => {
+    columns.forEach(([key, label]) => {
       const cell = document.createElement('td');
       const value = item[key] ?? '';
       if (key === 'STATUS' || key === 'ESTADO') {
@@ -290,9 +290,11 @@ function makeTable(container, items) {
           : value;
       }
       cell.dataset.field = key;
+      cell.dataset.label = label;
       row.append(cell);
     });
     const photoCell = document.createElement('td');
+    photoCell.dataset.label = 'Foto';
     if (item.Foto) {
       const link = document.createElement('a');
       link.className = 'table-photo-link';
@@ -315,6 +317,7 @@ function makeTable(container, items) {
     }
     row.append(photoCell);
     const actionCell = document.createElement('td');
+    actionCell.dataset.label = 'Ação';
     actionCell.className = 'table-actions-cell';
     const button = document.createElement('button');
     button.type = 'button';
@@ -325,6 +328,7 @@ function makeTable(container, items) {
     row.append(actionCell);
     if (selectionEnabled) {
       const selectionCell = document.createElement('td');
+      selectionCell.dataset.label = 'Selecionar';
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.checked = selectedItems.has(item.id);
@@ -720,6 +724,7 @@ async function importAuctionList(form) {
   }
   const body = new FormData();
   body.append('arquivo', file);
+  body.append('lote_id', form.querySelector('.auction-target-lot').value);
   const button = form.querySelector('button[type="submit"]');
   setBusy(button, true, 'Importando…');
   try {
@@ -737,24 +742,112 @@ async function importAuctionList(form) {
 async function loadAuctionList() {
   try {
     const data = await api('/api/leilao');
-    $('#auction-summary').textContent = `${data.total} item(ns)`;
-    renderAuctionList(data.itens);
+    const lotes = data.lotes || [];
+    $('#auction-summary').textContent =
+      `${data.total} item(ns) · ${lotes.length} lote(s)`;
+    updateAuctionLotSelects(lotes);
+    renderAuctionList(data.itens, lotes);
   } catch (error) {
     notify(`Não foi possível carregar a lista de leilão: ${error.message}`, 'error');
   }
 }
 
-function renderAuctionList(items) {
+function updateAuctionLotSelects(lotes) {
+  document.querySelectorAll('.auction-target-lot').forEach(select => {
+    const selecionado = select.value;
+    select.replaceChildren();
+    const disponivel = document.createElement('option');
+    disponivel.value = '';
+    disponivel.textContent = 'Disponíveis, sem lote';
+    select.append(disponivel);
+    lotes.forEach(lote => {
+      const option = document.createElement('option');
+      option.value = lote.id;
+      option.textContent = `Lote ${lote.numero} · ${lote.nome}`;
+      select.append(option);
+    });
+    select.value = selecionado;
+  });
+}
+
+function createAuctionButton(text, handler, className = 'button button-muted') {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = className;
+  button.textContent = text;
+  button.addEventListener('click', handler);
+  return button;
+}
+
+function renderAuctionList(items, lots) {
   const container = $('#auction-list');
   container.replaceChildren();
-  if (!items.length) {
+  if (!items.length && !lots.length) {
     container.textContent = 'Nenhum item adicionado à lista de leilão.';
     return;
   }
 
+  lots.forEach((lot, index) => {
+    const group = document.createElement('section');
+    group.className = 'auction-lot-group';
+    const heading = document.createElement('div');
+    heading.className = 'auction-lot-heading';
+    const title = document.createElement('h3');
+    title.textContent = `Lote ${lot.numero} · ${lot.nome}`;
+    const controls = document.createElement('div');
+    controls.className = 'auction-row-actions';
+    controls.append(
+      createAuctionButton('Renomear', () => renameAuctionLot(lot)),
+      createAuctionButton('↑', () => reorderAuctionLot(lots, index, -1), 'button button-muted auction-order-button'),
+      createAuctionButton('↓', () => reorderAuctionLot(lots, index, 1), 'button button-muted auction-order-button'),
+    );
+    controls.children[1].disabled = index === 0;
+    controls.children[2].disabled = index === lots.length - 1;
+    const lotItems = items.filter(item => item.lote_id === lot.id);
+    if (!lotItems.length) {
+      controls.append(createAuctionButton('Excluir lote vazio', async () => {
+        if (!window.confirm(`Excluir o lote "${lot.nome}"?`)) return;
+        try {
+          const result = await api(`/api/leilao/lotes/${encodeURIComponent(lot.id)}/excluir`, {
+            method: 'POST',
+            body: {},
+          });
+          notify(result.mensagem);
+          await loadAuctionList();
+        } catch (error) {
+          notify(error.message, 'error');
+        }
+      }));
+    }
+    heading.append(title, controls);
+    group.append(heading);
+    if (lotItems.length) {
+      appendAuctionItemsTable(group, lotItems, lots);
+    } else {
+      const empty = document.createElement('p');
+      empty.className = 'muted';
+      empty.textContent = 'Este lote ainda não tem itens.';
+      group.append(empty);
+    }
+    container.append(group);
+  });
+
+  const availableItems = items.filter(item => !item.lote_id);
+  if (availableItems.length) {
+    const group = document.createElement('section');
+    group.className = 'auction-lot-group';
+    const title = document.createElement('h3');
+    title.textContent = `Itens disponíveis para organizar (${availableItems.length})`;
+    group.append(title);
+    appendAuctionItemsTable(group, availableItems, lots);
+    container.append(group);
+  }
+}
+
+function appendAuctionItemsTable(container, items, lots) {
   const table = document.createElement('table');
   const header = document.createElement('tr');
-  ['Descrição', 'Plaqueta informada', 'Setor', 'Data', 'Observação', 'Situação', 'Vincular ao patrimônio', 'Ações'].forEach(text => {
+  ['Descrição', 'Plaqueta informada', 'Setor', 'Data', 'Observação', 'Situação', 'Organizar em lote', 'Vincular ao patrimônio', 'Ações'].forEach(text => {
     const cell = document.createElement('th');
     cell.textContent = text;
     header.append(cell);
@@ -766,56 +859,66 @@ function renderAuctionList(items) {
 
   items.forEach(item => {
     const row = document.createElement('tr');
-    [item.descricao, item.plaqueta_informada, item.setor, item.data, item.observacao].forEach(value => {
+    [
+      ['Descrição', item.descricao],
+      ['Plaqueta informada', item.plaqueta_informada],
+      ['Setor', item.setor],
+      ['Data', item.data],
+      ['Observação', item.observacao],
+    ].forEach(([label, value]) => {
       const cell = document.createElement('td');
+      cell.dataset.label = label;
       cell.textContent = value || '—';
       row.append(cell);
     });
     const status = document.createElement('td');
+    status.dataset.label = 'Situação';
     status.textContent = item.situacao === 'IDENTIFICADO'
       ? `Identificado · Plaqueta ${item.plaqueta_vinculada}`
       : 'Pendente de identificação';
     row.append(status);
 
-    const action = document.createElement('td');
-    const controls = document.createElement('div');
-    controls.className = 'auction-row-actions';
-    const editButton = document.createElement('button');
-    editButton.type = 'button';
-    editButton.className = 'button button-muted';
-    editButton.textContent = 'Editar';
-    editButton.addEventListener('click', () => openAuctionEdit(item));
-    const deleteButton = document.createElement('button');
-    deleteButton.type = 'button';
-    deleteButton.className = 'button button-muted';
-    deleteButton.textContent = 'Excluir';
-    deleteButton.addEventListener('click', async () => {
-      if (!window.confirm(`Excluir "${item.descricao}" da lista de leilão?`)) return;
-      deleteButton.disabled = true;
+    const organizeCell = document.createElement('td');
+    organizeCell.dataset.label = 'Organizar em lote';
+    const organizeControls = document.createElement('div');
+    organizeControls.className = 'auction-link-controls';
+    const lotSelect = document.createElement('select');
+    lotSelect.setAttribute('aria-label', `Lote para ${item.descricao}`);
+    const unassigned = document.createElement('option');
+    unassigned.value = '';
+    unassigned.textContent = 'Disponíveis, sem lote';
+    lotSelect.append(unassigned);
+    lots.forEach(lot => {
+      const option = document.createElement('option');
+      option.value = lot.id;
+      option.textContent = `Lote ${lot.numero} · ${lot.nome}`;
+      lotSelect.append(option);
+    });
+    lotSelect.value = item.lote_id || '';
+    const moveButton = createAuctionButton('Mover item', async () => {
+      moveButton.disabled = true;
       try {
-        const result = await api(`/api/leilao/${encodeURIComponent(item.id)}/excluir`, {
+        const result = await api(`/api/leilao/${encodeURIComponent(item.id)}/lote`, {
           method: 'POST',
-          body: {},
+          body: { lote_id: lotSelect.value },
         });
         notify(result.mensagem);
         await loadAuctionList();
       } catch (error) {
         notify(error.message, 'error');
-        deleteButton.disabled = false;
+        moveButton.disabled = false;
       }
-    });
-    controls.append(editButton, deleteButton);
-    action.append(controls);
+    }, 'button button-secondary');
+    organizeControls.append(lotSelect, moveButton);
+    organizeCell.append(organizeControls);
+    row.append(organizeCell);
 
     const linkAction = document.createElement('td');
+    linkAction.dataset.label = 'Vincular ao patrimônio';
     if (item.situacao !== 'IDENTIFICADO') {
       const field = document.createElement('div');
       field.className = 'auction-link-controls';
-      const searchButton = document.createElement('button');
-      searchButton.type = 'button';
-      searchButton.className = 'button button-secondary';
-      searchButton.textContent = 'Buscar possíveis correspondências';
-      searchButton.addEventListener('click', async () => {
+      const searchButton = createAuctionButton('Buscar possíveis correspondências', async () => {
         setBusy(searchButton, true, 'Buscando…');
         try {
           const result = await api(
@@ -827,19 +930,86 @@ function renderAuctionList(items) {
           notify(error.message, 'error');
           setBusy(searchButton, false);
         }
-      });
+      }, 'button button-secondary');
       field.append(searchButton);
       linkAction.append(field);
     } else {
       linkAction.textContent = 'Vínculo confirmado manualmente.';
     }
     row.append(linkAction);
+
+    const action = document.createElement('td');
+    action.dataset.label = 'Ações';
+    const controls = document.createElement('div');
+    controls.className = 'auction-row-actions';
+    controls.append(createAuctionButton('Editar', () => openAuctionEdit(item)));
+    if (item.lote_id) {
+      controls.append(createAuctionButton('Remover do lote', async () => {
+        try {
+          const result = await api(`/api/leilao/${encodeURIComponent(item.id)}/lote`, {
+            method: 'POST',
+            body: { lote_id: null },
+          });
+          notify(result.mensagem);
+          await loadAuctionList();
+        } catch (error) {
+          notify(error.message, 'error');
+        }
+      }));
+    }
+    controls.append(createAuctionButton('Excluir do sistema', async () => {
+      if (!window.confirm(
+        `Excluir "${item.descricao}" da lista de leilão? O cadastro patrimonial não será alterado.`
+      )) return;
+      try {
+        const result = await api(`/api/leilao/${encodeURIComponent(item.id)}/excluir`, {
+          method: 'POST',
+          body: {},
+        });
+        notify(result.mensagem);
+        await loadAuctionList();
+      } catch (error) {
+        notify(error.message, 'error');
+      }
+    }));
+    action.append(controls);
     row.append(action);
     body.append(row);
   });
 
   table.append(body);
   container.append(table);
+}
+
+async function renameAuctionLot(lot) {
+  const nome = window.prompt('Nome do lote:', lot.nome);
+  if (nome === null || nome.trim() === lot.nome) return;
+  try {
+    const result = await api(`/api/leilao/lotes/${encodeURIComponent(lot.id)}/editar`, {
+      method: 'POST',
+      body: { nome },
+    });
+    notify(result.mensagem);
+    await loadAuctionList();
+  } catch (error) {
+    notify(error.message, 'error');
+  }
+}
+
+async function reorderAuctionLot(lots, index, direction) {
+  const ids = lots.map(lot => lot.id);
+  const nextIndex = index + direction;
+  [ids[index], ids[nextIndex]] = [ids[nextIndex], ids[index]];
+  try {
+    const result = await api('/api/leilao/lotes/reordenar', {
+      method: 'POST',
+      body: { ids },
+    });
+    notify(result.mensagem);
+    await loadAuctionList();
+  } catch (error) {
+    notify(error.message, 'error');
+  }
 }
 
 function openAuctionEdit(item) {
@@ -998,6 +1168,25 @@ $('#csv-form').addEventListener('submit', event => {
   event.preventDefault();
   sendUpload(event.currentTarget, '/api/importar/csv');
 });
+$('#auction-lot-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector('button[type="submit"]');
+  setBusy(button, true, 'Criando…');
+  try {
+    const result = await api('/api/leilao/lotes', {
+      method: 'POST',
+      body: { nome: $('#auction-lot-name').value },
+    });
+    form.reset();
+    notify(result.mensagem);
+    await loadAuctionList();
+  } catch (error) {
+    notify(error.message, 'error');
+  } finally {
+    setBusy(button, false);
+  }
+});
 $('#auction-xlsx-form').addEventListener('submit', event => {
   event.preventDefault();
   importAuctionList(event.currentTarget);
@@ -1015,7 +1204,9 @@ $('#auction-manual-form').addEventListener('submit', async event => {
     plaqueta: $('#auction-plaqueta').value,
     setor: $('#auction-sector').value,
     data: $('#auction-date').value,
+    quantidade: $('#auction-quantity').value,
     observacao: $('#auction-observation').value,
+    lote_id: $('#auction-manual-lot').value || null,
   };
   setBusy(button, true, 'Salvando…');
   try {
