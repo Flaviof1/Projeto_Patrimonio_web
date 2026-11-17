@@ -119,8 +119,9 @@
     <aside class="callout">
       <strong>Importante: o aplicativo não tem login próprio.</strong>
       Quem consegue abrir o endereço do sistema pode consultar, editar, importar,
-      gerar e baixar dados. Para acesso remoto, mantenha a rede Tailscale restrita
-      a dispositivos e pessoas de confiança. Nunca encaminhe a porta do app no roteador.
+      gerar e baixar dados. Para acesso remoto pelo VS Code, mantenha a porta
+      encaminhada como <strong>Private</strong>. Nunca a torne pública nem encaminhe
+      a porta do app no roteador.
     </aside>
 
     <article id="visao-geral">
@@ -129,6 +130,9 @@
       apresenta a situação da base: origem ativa (MySQL ou planilha), total de
       bens, setores, quantidade por status, data da última preparação, fontes
       importadas e disponibilidade das fotos.</p>
+      <p>As áreas de trabalho da tela inicial aparecem em barras recolhidas.
+      Clique no título para abrir ou fechar cada área; várias podem ficar abertas
+      ao mesmo tempo.</p>
       <p>A interface se adapta a computadores e celulares. Em telas pequenas,
       os registros aparecem em cartões para facilitar a leitura e o toque;
       tabelas e formulários mantêm seus campos e ações disponíveis.</p>
@@ -147,76 +151,46 @@
       Flask, seguido de <code>:8765</code>. Exemplo: <code>http://192.168.1.20:8765</code>.
       Os aparelhos precisam estar na mesma rede e o firewall do Windows pode
       solicitar autorização para rede privada.</p>
-      <h3>De outra rede usando Tailscale (celular, tablet ou computador)</h3>
-      <p>Funciona em qualquer aparelho que consiga entrar na mesma rede privada
-      Tailscale e tenha navegador. Isso inclui Android, iPhone e iPad, além de
-      computadores Windows, macOS e Linux, com o Tailscale instalado e conectado.</p>
+      <h3>De outra rede usando o túnel privado do VS Code</h3>
+      <p>O encaminhamento de portas do VS Code usa um túnel de desenvolvimento da
+      Microsoft. Não é necessário instalar VPN no aparelho nem configurar o
+      roteador. No iPhone, basta abrir o endereço encaminhado no Safari e
+      autenticar com a mesma conta Microsoft ou GitHub usada no VS Code.</p>
       <ol class="steps">
-        <li>Instale e conecte o Tailscale no PC servidor. Inicie o Flask e deixe
-        o PC ligado, sem suspensão, com o terminal aberto.</li>
-        <li>No novo aparelho, instale o aplicativo oficial do Tailscale e entre
-        na mesma conta usada no PC servidor. Se usar outra conta, o administrador
-        precisa convidar essa pessoa para a rede ou compartilhar o PC servidor
-        com ela e autorizar o acesso na política da rede.</li>
-        <li>No painel <a href="https://login.tailscale.com/admin/machines">Máquinas
-        do Tailscale</a>, confirme que o PC e o aparelho estão conectados e
-        autorizados.</li>
-        <li>No navegador do aparelho, abra o endereço da seção
-        <strong>Acesso remoto pelo Tailscale</strong> mostrado no terminal do PC,
-        no formato <code>http://IP-DO-PC:8765</code>. O IP do servidor normalmente
-        começa com <code>100.</code>; não use o IP do celular. Se o endereço não
-        aparecer no terminal, consulte o IPv4 do PC no painel de máquinas.</li>
+        <li>No PC servidor, inicie o Flask e mantenha o computador, o VS Code e
+        o terminal ligados, sem suspensão.</li>
+        <li>No VS Code, abra a visualização <strong>Ports</strong> (ou execute
+        <strong>Ports: Focus on Ports View</strong> na Paleta de Comandos), escolha
+        <strong>Forward a Port</strong> e informe <code>8765</code>.</li>
+        <li>Na lista de portas, deixe <strong>Port Visibility</strong> como
+        <strong>Private</strong> e copie o endereço encaminhado.</li>
+        <li>No navegador do aparelho, abra o endereço. Para o acesso privado,
+        entre na mesma conta Microsoft ou GitHub usada para criar o túnel.</li>
       </ol>
-      <p>Não é necessário que o aparelho esteja no mesmo Wi-Fi do PC. MySQL e
-      Flask devem continuar ativos no servidor. Não abra nem encaminhe a porta
-      no roteador. Para encerrar o Flask, volte ao terminal do servidor e pressione
+      <p>Não é necessário que o aparelho esteja no mesmo Wi-Fi do PC. O VS Code
+      e o Flask devem continuar ativos no servidor. Na mesma rede local, use o
+      endereço IPv4 mostrado no terminal. Não abra nem encaminhe a porta no
+      roteador. Para encerrar o Flask, volte ao terminal do servidor e pressione
       <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
       <aside class="callout">
-        <strong>Firewall do Windows e novos aparelhos</strong>
-        O aplicativo não tem login próprio: qualquer dispositivo autorizado a
-        alcançar o endereço pode consultar e alterar dados. Se o firewall permitir
-        somente o IP Tailscale de um aparelho, autorize também cada novo aparelho.
-        Para permitir qualquer dispositivo IPv4 da rede Tailscale, uma pessoa
-        administradora pode abrir o PowerShell como administrador no PC servidor
-        e executar:
-        <pre><code>New-NetFirewallRule `
-  -DisplayName "Patrimonio Web via Tailscale" `
-  -Direction Inbound `
-  -Action Allow `
-  -Protocol TCP `
-  -LocalPort 8765 `
-  -RemoteAddress 100.64.0.0/10 `
-  -InterfaceAlias "Tailscale" `
-  -Profile Any `
-  -Description "Acesso ao Patrimonio Web pela rede Tailscale"</code></pre>
-        Essa regra permite acesso à porta 8765 pelos dispositivos IPv4 da rede
-        Tailscale. Use-a somente se a rede estiver restrita a pessoas confiáveis.
-        Para permitir apenas um aparelho, substitua
-        <code>100.64.0.0/10</code> pelo IPv4 Tailscale dele. Se necessário,
-        confira o nome da interface com <code>Get-NetAdapter</code>.
+        <strong>Segurança do encaminhamento</strong>
+        O aplicativo não tem login próprio. Mantenha a porta como
+        <strong>Private</strong>, que exige autenticação na conta que criou o
+        túnel. Não escolha <strong>Public</strong>: qualquer pessoa com o endereço
+        público poderia consultar e alterar dados.
       </aside>
-      <p>O endereço pode mudar se o PC for removido da rede Tailscale e adicionado
-      novamente, se o Tailscale for redefinido/reinstalado e perder o registro do
-      dispositivo, se o disco for apagado ou se um administrador mudar o IP
-      manualmente. Se não conectar, confira o endereço do PC em
-      <strong>Máquinas</strong> no painel Tailscale.</p>
     </article>
 
     <article id="ligar-sistema">
       <h2>3. Passo a passo: ligar o sistema depois de reiniciar o PC</h2>
-      <p>Há duas coisas diferentes: o <strong>endereço Tailscale do PC</strong>
-      normalmente continua o mesmo; o <strong>programa Flask</strong> precisa
-      ser iniciado novamente depois que o Windows reinicia. Faça estes passos
-      no PC servidor sempre que quiser usar o sistema. O VS Code não é
-      obrigatório: ele é apenas um editor que também oferece uma janela de
-      terminal. Você pode iniciar o servidor pelo terminal do VS Code ou pelo
-      PowerShell do próprio Windows.</p>
+      <p>O <strong>programa Flask</strong> precisa ser iniciado novamente depois
+      que o Windows reinicia. Para acessar de outra rede usando o túnel, o VS
+      Code também precisa estar aberto no PC servidor. Faça estes passos no PC
+      servidor sempre que quiser usar o sistema. Você pode iniciar o servidor
+      pelo terminal do VS Code ou pelo PowerShell do próprio Windows.</p>
       <ol class="steps">
         <li><strong>Ligue o PC e espere o Windows terminar de carregar.</strong>
         Não deixe o computador dormir durante a auditoria remota.</li>
-        <li><strong>Confira o Tailscale no PC.</strong> Perto do relógio do
-        Windows, procure o ícone do Tailscale. Abra-o e confirme que está
-        conectado. Se pedir login, entre na mesma conta usada no iPhone.</li>
         <li><strong>Confira o MySQL.</strong> Ele está configurado para iniciar
         automaticamente neste PC. Se o aplicativo disser que não consegue
         conectar ao banco, pressione a tecla Windows, digite
@@ -262,24 +236,23 @@ set PATRIMONIO_STORAGE=mysql
         Enter depois de digitá-la. Não cole nem compartilhe a senha em mensagens
         ou arquivos.</li>
         <li><strong>Deixe o terminal e o PC ligados.</strong> O sistema está
-        iniciado quando o terminal mostra os endereços de acesso e não voltou
+        iniciado quando o terminal mostra os endereços locais de acesso e não voltou
         para a linha de comando. Não feche a janela do terminal e não pressione
         <kbd>Ctrl</kbd>+<kbd>C</kbd> enquanto estiver usando o sistema. Você pode
         minimizar a janela.</li>
-        <li><strong>No aparelho que vai acessar</strong>, ligue o Tailscale e
-        confirme que está conectado à rede autorizada. Abra o navegador e digite
-        o endereço da seção <strong>Acesso remoto pelo Tailscale</strong> mostrada
-        no terminal do PC, por exemplo <code>http://IP-DO-PC:8765</code>. Se o
-        endereço não aparecer, confira o IP do PC em <strong>Máquinas</strong>
-        no painel Tailscale.</li>
+        <li><strong>Para acesso na mesma rede</strong>, abra no navegador o
+        endereço IPv4 local mostrado no terminal. <strong>Para acesso de outra
+        rede</strong>, configure a porta <code>8765</code> na visualização
+        <strong>Ports</strong> do VS Code, mantenha-a <strong>Private</strong> e
+        use o endereço encaminhado no navegador do aparelho, autenticando com
+        a mesma conta Microsoft ou GitHub.</li>
       </ol>
       <aside class="callout">
         <strong>Resumo fácil de lembrar</strong>
-        Depois de reiniciar o PC: Tailscale conectado + MySQL em execução +
-        Flask iniciado no terminal (VS Code, PowerShell ou CMD) + Tailscale
-        ligado no aparelho que vai acessar.
-        O IP Tailscale normalmente não muda; o servidor Flask é que precisa ser
-        iniciado novamente.
+        Depois de reiniciar o PC: MySQL em execução + Flask iniciado no terminal.
+        Para outra rede, mantenha o VS Code aberto, encaminhe a porta
+        <code>8765</code> como <strong>Private</strong> e abra o endereço no
+        aparelho cliente.
       </aside>
       <p>Para desligar o servidor de forma normal, volte à mesma janela do
       terminal e pressione
@@ -316,10 +289,11 @@ set PATRIMONIO_STORAGE=mysql
         <li>Escolha o setor no campo <strong>Conferência por setor</strong> e
         clique em <strong>Iniciar</strong>.</li>
         <li>Revise a identificação e os dados exibidos. Abra <strong>Editar</strong>
-        para registrar status, estado de conservação e observação.</li>
+        para registrar status, estado de conservação, observação e valor do bem.</li>
         <li>Salve a conferência. Para trocar ou anexar uma foto, selecione a
         imagem e use <strong>Salvar foto e alterações</strong>; esse comando
-        também salva status, estado, observação e, quando permitido, descrição.</li>
+        também salva status, estado, observação, valor e, quando permitido,
+        descrição.</li>
         <li>Se encontrar um bem físico ainda não cadastrado e sem plaqueta,
         clique em <strong>Incluir bem localizado sem plaqueta</strong>, informe
         setor, descrição, quantidade, estado e observação. O sistema gera um
@@ -356,14 +330,51 @@ set PATRIMONIO_STORAGE=mysql
       respeitando os filtros atuais.</p>
       <p>O relatório gerencial é diferente: ele resume toda a base, não apenas os
       resultados da Busca Geral.</p>
+      <p>No relatório Excel da Busca Geral, a aba de itens filtrados inclui também
+      todas as colunas originais do CSV SH3. Quando uma coluna tem o mesmo nome de
+      um campo da conferência, o dado original é identificado pelo prefixo
+      <strong>SH3 - </strong>; assim, os valores das duas fontes são preservados.</p>
+      <p><strong>Atenção:</strong> o comando <strong>Excluir da planilha
+      principal</strong>, disponível na Busca geral e na Conferência por setor,
+      remove registros da base patrimonial e pode causar danos graves ou perda
+      de dados no sistema. Confira os itens e confirme a exclusão somente se
+      tiver certeza.</p>
     </article>
 
     <article id="leilao">
       <h2>Itens previstos para leilão e lotes</h2>
       <p>Na seção <strong>Itens previstos para leilão</strong>, crie um lote
-      informando o nome. A numeração é automática e acompanha a ordem exibida;
-      use as setas para reordenar. Os lotes podem ser renomeados e os lotes
-      vazios podem ser excluídos.</p>
+      informando apenas o nome; a numeração é automática e acompanha a ordem
+      exibida. Nomes repetidos não são permitidos. Use as ações no cabeçalho do
+      lote para renomear, reordenar ou excluir. Se houver itens no lote, a tela
+      avisa que eles precisam ser movidos ou removidos antes da exclusão.</p>
+      <p>Na importação Excel/CSV, o sistema compara as plaquetas com a base
+      patrimonial e mostra uma prévia dos setores encontrados. Revise as sugestões
+      e aprove as que deseja aplicar à lista de leilão. Plaquetas ausentes, não
+      encontradas, duplicadas ou sem setor mantêm os dados do arquivo, para
+      conferência manual. O cadastro patrimonial não é alterado por essa análise.</p>
+      <p>Se o arquivo tiver uma coluna <strong>LOTE</strong>, o sistema organiza
+      cada item pelo valor dessa coluna. Valores como <code>1</code>,
+      <code>01</code> e <code>Lote 01</code> são tratados como o mesmo lote.
+      Lotes ainda não cadastrados aparecem na prévia e só são criados quando
+      você confirma a importação. O lote escolhido no formulário é usado nas
+      linhas em que a coluna LOTE estiver vazia. Se houver divergência, a prévia
+      mostra um aviso antes de gravar qualquer alteração.</p>
+      <p>Cada linha precisa ter uma <strong>Descrição</strong> ou uma
+      <strong>Plaqueta</strong>. Se a descrição estiver vazia, a plaqueta será
+      usada como identificação provisória do item e isso aparecerá na prévia.
+      Se ela corresponder a um único bem com descrição na base patrimonial, essa
+      descrição será salva no item; descrições já preenchidas no arquivo são
+      preservadas.</p>
+      <p>O valor por item é opcional. Na importação, use uma coluna como
+      <strong>Valor</strong>, <strong>Valor unitário</strong> ou
+      <strong>Preço</strong>; no cadastro manual, informe o valor por unidade.
+      Ao cadastrar várias unidades, cada uma recebe o valor informado.</p>
+      <p>Na lista de leilão, pesquise pela descrição ou plaqueta e filtre por
+      lote. A tela mostra até 10 itens por página. A exportação Excel usa o
+      mesmo formato dos demais relatórios, reúne os lotes em uma aba e inclui
+      todos os itens que correspondem aos filtros, mesmo que estejam em outras
+      páginas.</p>
       <p>Ao adicionar itens manualmente, informe a quantidade desejada: cada
       unidade é criada como um item individual, com a mesma descrição e os demais
       dados informados, podendo ser organizada ou excluída separadamente. Ao
@@ -373,11 +384,19 @@ set PATRIMONIO_STORAGE=mysql
       colocá-lo em outro lote ou em “Disponíveis, sem lote”. A ação
       <strong>Remover do lote</strong> mantém o item cadastrado para organização
       posterior. Para apagar o item da lista de leilão, use
-      <strong>Excluir do sistema</strong> e confirme; essa ação não altera o
-      cadastro patrimonial nem dá baixa no bem.</p>
-      <p>O lote agrupa itens para organização do leilão. A confirmação de vínculo
-      com uma plaqueta patrimonial continua sendo uma ação separada e não altera
-      o status do bem.</p>
+      <strong>Excluir da lista</strong> e confirme; essa ação não altera o
+      cadastro patrimonial nem dá baixa no bem. Para excluir vários itens de um
+      lote, filtre pelo lote desejado e use
+      <strong>Selecionar todos os resultados</strong>. A seleção inclui os
+      resultados de todas as páginas e substitui seleções anteriores. Confira a
+      quantidade e use <strong>Excluir selecionados</strong> para confirmar.</p>
+      <p>O botão <strong>Buscar possíveis correspondências</strong> considera
+      descrição e setor. Sugestões com status <code>OK</code> não são exibidas;
+      itens sem plaqueta podem aparecer e ser vinculados pelo identificador
+      interno. Se houver uma sugestão <code>DIVERG</code>, o sistema avisa para
+      conferir o setor, pois o bem pode estar cadastrado em um setor diferente
+      do correto. Confirmar o vínculo não altera o status patrimonial nem dá
+      baixa no bem.</p>
     </article>
 
     <article id="status">
@@ -474,10 +493,11 @@ set PATRIMONIO_STORAGE=mysql
         <li><strong>A página não abre:</strong> confirme que o PC não suspendeu,
         que o serviço MySQL está ativo, que o terminal do Flask continua aberto
         e que o endereço inclui <code>:8765</code>.</li>
-        <li><strong>Acesso remoto falha:</strong> confirme que os dois dispositivos
-        aparecem conectados no Tailscale e use o IP Tailscale do PC servidor.
-        Endereço local como <code>192.168.x.x</code> pode não funcionar fora da
-        rede doméstica.</li>
+        <li><strong>Acesso remoto falha:</strong> confirme que o VS Code e o Flask
+        continuam ativos no PC servidor, que a porta <code>8765</code> aparece
+        encaminhada como <strong>Private</strong> e que o navegador está conectado
+        à mesma conta Microsoft ou GitHub. O endereço local
+        <code>192.168.x.x</code> só funciona na mesma rede.</li>
         <li><strong>O painel diz que não há dados:</strong> confira no painel se
         a fonte está importada e se o MySQL está ativo. Não reimporte nem
         prepare dados para tentar corrigir sem primeiro verificar a fonte correta.</li>
@@ -494,11 +514,11 @@ set PATRIMONIO_STORAGE=mysql
     <article id="seguranca">
       <h2>13. Segurança e boas práticas</h2>
       <ul>
-        <li>Restrinja a rede Tailscale a dispositivos e usuários autorizados:
-        dentro do app, todos têm poder de edição, importação, restauração e
-        download.</li>
-        <li>Não compartilhe o endereço Tailscale publicamente, não encaminhe a
-        porta do app no roteador e não use o serviço em uma rede pública aberta.</li>
+        <li>Mantenha a porta encaminhada pelo VS Code como <strong>Private</strong>:
+        dentro do app, qualquer pessoa que consiga acessá-lo pode editar,
+        importar, restaurar e baixar dados.</li>
+        <li>Não altere a porta para <strong>Public</strong>, não encaminhe a porta
+        do app no roteador e não use o serviço em uma rede pública aberta.</li>
         <li>Crie backups antes de operações importantes e mantenha uma cópia
         baixada fora do PC servidor.</li>
         <li>Evite alterações simultâneas no mesmo item. Aguarde a confirmação

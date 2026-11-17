@@ -4,7 +4,6 @@ import shutil
 import tempfile
 from pathlib import Path
 from io import BytesIO
-from types import SimpleNamespace
 
 import pytest
 
@@ -17,8 +16,13 @@ import zipfile
 from PIL import Image
 from openpyxl import load_workbook
 
-import app as app_module
 from app import app
+import rotas_leilao as leilao_routes
+import rotas_patrimonio as patrimonio_routes
+import servicos_comuns
+import servicos_leilao
+import servicos_operacoes
+import servicos_patrimonio
 from paths import (
     BACKUPS_DIR,
     DATA_DIR,
@@ -61,6 +65,36 @@ def post(client, url, **kwargs):
     headers = kwargs.pop('headers', {})
     headers['X-CSRF-Token'] = 'token-de-teste'
     return client.post(url, headers=headers, **kwargs)
+
+
+def importar_arquivo_leilao_aprovado(client, conteudo, nome, lote_id=None):
+    dados = {
+        'arquivo': (BytesIO(conteudo), nome),
+        'lote_id': lote_id or '',
+    }
+    analise = post(
+        client,
+        '/api/leilao/importar/analisar',
+        data=dados,
+        content_type='multipart/form-data',
+    )
+    if analise.status_code != 200:
+        return analise
+    resultado = analise.get_json()
+    confirmacao = post(
+        client,
+        '/api/leilao/importar',
+        data={
+            'arquivo': (BytesIO(conteudo), nome),
+            'lote_id': lote_id or '',
+            'token_analise': resultado['token_analise'],
+            'indices_aprovados': json.dumps([
+                proposta['indice'] for proposta in resultado['analise']['propostas']
+            ]),
+        },
+        content_type='multipart/form-data',
+    )
+    return confirmacao
 
 
 def enviar_csv(client, conteudo=CSV_VALIDO, confirmar=None):
@@ -147,7 +181,8 @@ def test_modo_mysql_usa_a_mesma_camada_de_leitura_e_gravacao(client, monkeypatch
         def replace_all(self, dados):
             gravado['dados'] = dados.copy()
 
-    monkeypatch.setattr(app_module, 'MySQLStore', ArmazenamentoTeste)
+    monkeypatch.setattr(servicos_patrimonio, 'MySQLStore', ArmazenamentoTeste)
+    monkeypatch.setattr(servicos_operacoes, 'MySQLStore', ArmazenamentoTeste)
     monkeypatch.setenv('PATRIMONIO_STORAGE', 'mysql')
 
     status = client.get('/api/status').get_json()
@@ -332,13 +367,33 @@ def test_preparacao_setores_conferencia_e_regras_de_estado(client):
     edicao = post(
         client,
         f"/api/itens/{item['id']}/editar",
-        json={'status': 'N_LOC', 'estado': 'EM USO', 'observacao': 'Não localizado'},
+        json={
+            'status': 'N_LOC',
+            'estado': 'EM USO',
+            'observacao': 'Não localizado',
+            'valor': '1250,50',
+        },
     )
     assert edicao.status_code == 200, edicao.get_json()
     atualizado = client.get('/api/conferencia?setor=Setor%20A').get_json()['itens'][0]
     assert atualizado['STATUS'] == 'N_LOC'
     assert atualizado['ESTADO'] == 'NAO_APLICAVEL'
     assert atualizado['OBSERVACAO'] == 'Não localizado'
+    assert float(atualizado['Valor']) == pytest.approx(1250.50)
+
+
+def test_edicao_patrimonial_rejeita_valor_invalido_sem_salvar(client):
+    assert preparar_base(client).status_code == 200
+    item = client.get('/api/conferencia?setor=Setor%20A').get_json()['itens'][0]
+
+    resposta = post(
+        client,
+        f"/api/itens/{item['id']}/editar",
+        json={'status': 'OK', 'estado': 'EM USO', 'valor': '-1'},
+    )
+
+    assert resposta.status_code == 400
+    assert 'valor' in resposta.get_json()['error'].lower()
 
 
 def test_edicao_inclusao_busca_e_repreparacao_preservam_conferencia(client):
@@ -475,6 +530,7 @@ def test_anexa_remove_e_filtra_foto_de_bem(client):
             'status': 'OK',
             'estado': 'DESUSO',
             'observacao': 'Foto e conferência salvas juntas',
+            'valor': '75,25',
         },
         content_type='multipart/form-data',
     )
@@ -484,6 +540,7 @@ def test_anexa_remove_e_filtra_foto_de_bem(client):
     assert item['STATUS'] == 'OK'
     assert item['ESTADO'] == 'DESUSO'
     assert item['OBSERVACAO'] == 'Foto e conferência salvas juntas'
+    assert float(item['Valor']) == pytest.approx(75.25)
     assert resposta.get_json()['pasta'] == 'dados_trabalho\\Fotos'
     assert (FOTOS_DIR / item['Foto']).is_file()
     for nome_planilha in ('conferencia_resultado.xlsx', 'conferencia_campo.xlsx'):
@@ -515,7 +572,7 @@ def test_busca_filtra_itens_com_e_sem_plaqueta(client, monkeypatch):
         {'Plaqueta': None, 'Descrição': 'Outro sem plaqueta', 'STATUS': 'DIVERG'},
         {'Plaqueta': '000123', 'Descrição': 'Bem identificado', 'STATUS': 'OK'},
     ])
-    monkeypatch.setattr(app_module, '_carregar_base', lambda: dados)
+    monkeypatch.setattr(patrimonio_routes, '_carregar_base', lambda: dados)
 
     sem_plaqueta = client.get('/api/busca?plaqueta=Sem+plaqueta').get_json()
     com_plaqueta = client.get('/api/busca?plaqueta=Com+plaqueta').get_json()
@@ -533,8 +590,8 @@ def test_busca_exclui_em_lote_itens_selecionados(client, monkeypatch):
         {'Plaqueta': '000124', 'Descrição': 'Cadeira', 'Setor Atual': 'Setor B'},
     ])
     gravado = {}
-    monkeypatch.setattr(app_module, '_carregar_base', lambda: base.copy())
-    monkeypatch.setattr(app_module, '_salvar_planilha', lambda dados: gravado.update(base=dados.copy()))
+    monkeypatch.setattr(patrimonio_routes, '_carregar_base', lambda: base.copy())
+    monkeypatch.setattr(patrimonio_routes, '_salvar_planilha', lambda dados: gravado.update(base=dados.copy()))
 
     resposta = post(client, '/api/itens/excluir-lote', json={'ids': [0, 2]})
 
@@ -546,8 +603,8 @@ def test_busca_exclui_em_lote_itens_selecionados(client, monkeypatch):
 def test_exclusao_em_lote_rejeita_selecao_invalida_sem_salvar(client, monkeypatch):
     base = pd.DataFrame([{'Plaqueta': '000123', 'Descrição': 'Mesa'}])
     salvou = []
-    monkeypatch.setattr(app_module, '_carregar_base', lambda: base.copy())
-    monkeypatch.setattr(app_module, '_salvar_planilha', lambda dados: salvou.append(dados))
+    monkeypatch.setattr(patrimonio_routes, '_carregar_base', lambda: base.copy())
+    monkeypatch.setattr(patrimonio_routes, '_salvar_planilha', lambda dados: salvou.append(dados))
 
     resposta = post(client, '/api/itens/excluir-lote', json={'ids': [0, 99]})
 
@@ -565,7 +622,7 @@ def test_busca_e_conferencia_paginam_resultados(client, monkeypatch):
         }
         for indice in range(120)
     ])
-    monkeypatch.setattr(app_module, '_carregar_base', lambda: dados)
+    monkeypatch.setattr(patrimonio_routes, '_carregar_base', lambda: dados)
 
     primeira_pagina = client.get('/api/busca').get_json()
     segunda_pagina = client.get('/api/busca?pagina=2').get_json()
@@ -587,25 +644,29 @@ def test_busca_e_conferencia_paginam_resultados(client, monkeypatch):
 
 
 def test_lista_leilao_importa_csv_e_permite_vinculo_confirmado(client, monkeypatch):
-    base = pd.DataFrame([{
-        'Plaqueta': '000123',
-        'Descrição': 'Mesa de reunião',
-        'Setor Atual': 'Setor A',
-        'STATUS': 'PEND',
-        'ESTADO': 'EM USO',
-    }], index=[7])
-    monkeypatch.setattr(app_module, '_carregar_base', lambda: base)
+    base = pd.DataFrame([
+        {
+            'Plaqueta': plaqueta,
+            'Descrição': 'Mesa de reunião',
+            'Setor Atual': 'Setor A',
+            'STATUS': status,
+            'ESTADO': 'EM USO',
+        }
+        for plaqueta, status in (
+            ('000123', 'PEND'),
+            ('000124', 'OK'),
+            ('000125', 'DIVERG'),
+            ('000126', 'DIV'),
+            ('', 'PEND'),
+            ('', 'N_LOC'),
+        )
+    ], index=[7, 8, 9, 10, 12, 13])
+    monkeypatch.setattr(leilao_routes, '_carregar_base', lambda: base)
 
-    importacao = post(
+    importacao = importar_arquivo_leilao_aprovado(
         client,
-        '/api/leilao/importar',
-        data={
-            'arquivo': (
-                BytesIO('Descrição;Setor;Data\nMesa reunião;Setor A;2020-01-01\n'.encode()),
-                'leilao.csv',
-            ),
-        },
-        content_type='multipart/form-data',
+        'Descrição;Setor;Data\nMesa reunião;Setor A;2020-01-01\n'.encode(),
+        'leilao.csv',
     )
     assert importacao.status_code == 200, importacao.get_json()
     assert importacao.get_json()['importados'] == 1
@@ -614,7 +675,16 @@ def test_lista_leilao_importa_csv_e_permite_vinculo_confirmado(client, monkeypat
     assert item['situacao'] == 'PENDENTE_IDENTIFICACAO'
     assert 'sugestoes' not in item
     sugestoes = client.get(f"/api/leilao/{item['id']}/sugestoes").get_json()
-    assert sugestoes['sugestoes'][0]['plaqueta'] == '000123'
+    assert [
+        (sugestao['id'], sugestao['plaqueta'], sugestao['status'])
+        for sugestao in sugestoes['sugestoes']
+    ] == [
+        (7, '000123', 'PEND'),
+        (9, '000125', 'DIVERG'),
+        (10, '000126', 'DIV'),
+        (12, '', 'PEND'),
+        (13, '', 'N_LOC'),
+    ]
     assert base.iloc[0]['STATUS'] == 'PEND'
 
     vinculo = post(
@@ -630,6 +700,349 @@ def test_lista_leilao_importa_csv_e_permite_vinculo_confirmado(client, monkeypat
     assert base.iloc[0]['STATUS'] == 'PEND'
 
 
+def test_vinculo_sem_plaqueta_por_identificador_avisa_status_diverg(client, monkeypatch):
+    base = pd.DataFrame([{
+        'Plaqueta': '',
+        'Descrição': 'Cadeira localizada sem plaqueta',
+        'Setor Atual': 'Setor B',
+        'STATUS': 'DIVERG',
+        'ESTADO': 'EM USO',
+    }], index=[12])
+    monkeypatch.setattr(leilao_routes, '_carregar_base', lambda: base)
+
+    incluido = post(
+        client,
+        '/api/leilao/manual',
+        json={'descricao': 'Cadeira localizada sem plaqueta'},
+    )
+    item_id = incluido.get_json()['item']['id']
+    sugestoes = client.get(f'/api/leilao/{item_id}/sugestoes').get_json()['sugestoes']
+
+    assert len(sugestoes) == 1
+    assert sugestoes[0]['id'] == 12
+    assert sugestoes[0]['plaqueta'] == ''
+    assert sugestoes[0]['status'] == 'DIVERG'
+
+    vinculo = post(
+        client,
+        f'/api/leilao/{item_id}/vincular',
+        json={'identificador': 12},
+    )
+
+    assert vinculo.status_code == 200, vinculo.get_json()
+    assert 'Atenção' in vinculo.get_json()['mensagem']
+    assert 'setor' in vinculo.get_json()['mensagem']
+    item_vinculado = client.get('/api/leilao').get_json()['itens'][0]
+    assert item_vinculado['situacao'] == 'IDENTIFICADO'
+    assert item_vinculado['identificador_vinculado'] == 12
+    assert item_vinculado['descricao_vinculada'] == 'Cadeira localizada sem plaqueta'
+    assert item_vinculado['setor_vinculado'] == 'Setor B'
+    assert base.iloc[0]['STATUS'] == 'DIVERG'
+
+
+def test_importacao_analisa_setores_por_plaqueta_e_somente_aplica_apos_aprovacao(
+    client, monkeypatch
+):
+    base = pd.DataFrame([
+        {'Plaqueta': '000123', 'Descrição': 'Mesa cadastrada', 'Setor Atual': 'Setor A'},
+        {'Plaqueta': '000124', 'Descrição': 'Cadeira 1', 'Setor Atual': 'Setor B'},
+        {'Plaqueta': '000124', 'Descrição': 'Cadeira 2', 'Setor Atual': 'Setor C'},
+    ])
+    monkeypatch.setattr(leilao_routes, '_carregar_base', lambda: base)
+    conteudo = (
+        'Descrição;Plaqueta;Setor;Valor\n'
+        'Mesa;123;Setor informado;1.234,56\n'
+        'Armário sem plaqueta;;Setor manual;50,00\n'
+        'Bem não encontrado;999;Setor antigo;60,00\n'
+        'Cadeira ambígua;000124;Setor antigo;70,00\n'
+    ).encode()
+
+    analise = post(
+        client,
+        '/api/leilao/importar/analisar',
+        data={'arquivo': (BytesIO(conteudo), 'leilao.csv')},
+        content_type='multipart/form-data',
+    )
+
+    assert analise.status_code == 200, analise.get_json()
+    resultado = analise.get_json()
+    assert client.get('/api/leilao').get_json()['itens'] == []
+    assert resultado['analise']['resumo'] == {
+        'total': 4,
+        'descricao_provisoria': 0,
+        'propostas': 1,
+        'sem_plaqueta': 1,
+        'nao_encontrada': 1,
+        'ambiguas': 1,
+        'sem_setor': 0,
+        'setor_igual': 0,
+        'sem_base': 0,
+        'descricoes_encontradas': 0,
+    }
+    assert resultado['analise']['propostas'][0]['setor_sugerido'] == 'Setor A'
+
+    importacao = post(
+        client,
+        '/api/leilao/importar',
+        data={
+            'arquivo': (BytesIO(conteudo), 'leilao.csv'),
+            'token_analise': resultado['token_analise'],
+            'indices_aprovados': '[0]',
+        },
+        content_type='multipart/form-data',
+    )
+
+    assert importacao.status_code == 200, importacao.get_json()
+    itens = client.get('/api/leilao').get_json()['itens']
+    assert all(item['lote_id'] is None for item in itens)
+    assert [item['setor'] for item in itens] == [
+        'Setor A',
+        'Setor manual',
+        'Setor antigo',
+        'Setor antigo',
+    ]
+    assert [item['valor'] for item in itens] == ['1234.56', '50.00', '60.00', '70.00']
+    assert base['Setor Atual'].tolist() == ['Setor A', 'Setor B', 'Setor C']
+
+
+def test_importacao_leilao_inclui_linhas_com_plaqueta_sem_descricao(client, monkeypatch):
+    monkeypatch.setattr(leilao_routes, '_carregar_base', lambda: None)
+    conteudo = (
+        'Descrição;Plaqueta;LOTE\n'
+        ';123;2\n'
+        'Cadeira sem plaqueta;;2\n'
+        ';;2\n'
+    ).encode()
+
+    analise = post(
+        client,
+        '/api/leilao/importar/analisar',
+        data={'arquivo': (BytesIO(conteudo), 'leilao.csv')},
+        content_type='multipart/form-data',
+    )
+
+    assert analise.status_code == 200, analise.get_json()
+    resultado = analise.get_json()
+    assert resultado['analise']['resumo']['total'] == 2
+    assert resultado['analise']['resumo']['descricao_provisoria'] == 1
+    assert resultado['analise']['resumo']['sem_plaqueta'] == 1
+
+    importacao = post(
+        client,
+        '/api/leilao/importar',
+        data={
+            'arquivo': (BytesIO(conteudo), 'leilao.csv'),
+            'token_analise': resultado['token_analise'],
+            'indices_aprovados': '[]',
+        },
+        content_type='multipart/form-data',
+    )
+
+    assert importacao.status_code == 200, importacao.get_json()
+    itens = client.get('/api/leilao').get_json()['itens']
+    assert len(itens) == 2
+    assert itens[0]['descricao'] == 'Item com plaqueta 123'
+    assert itens[0]['plaqueta_informada'] == '123'
+    assert 'descricao_provisoria' not in itens[0]
+    assert itens[1]['descricao'] == 'Cadeira sem plaqueta'
+
+
+def test_importacao_leilao_salva_descricao_do_cadastro_pela_plaqueta(
+    client, monkeypatch
+):
+    base = pd.DataFrame([{
+        'Plaqueta': '123',
+        'Descrição': 'Mesa cadastrada',
+        'Setor Atual': 'Setor A',
+    }])
+    monkeypatch.setattr(leilao_routes, '_carregar_base', lambda: base)
+    conteudo = 'Descrição;Plaqueta;Setor\n;123;Setor A\n'.encode()
+
+    importacao = importar_arquivo_leilao_aprovado(
+        client, conteudo, 'leilao.csv'
+    )
+
+    assert importacao.status_code == 200, importacao.get_json()
+    resposta = importacao.get_json()
+    assert resposta['descricoes_aplicadas'] == 1
+    item = client.get('/api/leilao').get_json()['itens'][0]
+    assert item['descricao'] == 'Mesa cadastrada'
+    assert item['plaqueta_informada'] == '123'
+    assert item['setor'] == 'Setor A'
+    assert 'descricao_provisoria' not in item
+
+
+def test_exportar_leilao_excel_respeita_filtros_e_inclui_todos_os_itens(client):
+    lote_a = post(
+        client,
+        '/api/leilao/lotes',
+        json={'nome': 'Depósito A'},
+    ).get_json()['lote']
+    lote_b = post(
+        client,
+        '/api/leilao/lotes',
+        json={'nome': 'Depósito B'},
+    ).get_json()['lote']
+    conteudo_a = (
+        'Descrição;Plaqueta\n'
+        + ''.join(f'Mesa {indice};{1000 + indice}\n' for indice in range(1, 12))
+    ).encode()
+    conteudo_b = 'Descrição;Plaqueta\nCadeira;2000\n'.encode()
+    importacao_a = importar_arquivo_leilao_aprovado(
+        client, conteudo_a, 'lote-a.csv', lote_a['id']
+    )
+    importacao_b = importar_arquivo_leilao_aprovado(
+        client, conteudo_b, 'lote-b.csv', lote_b['id']
+    )
+    assert importacao_a.status_code == 200
+    assert importacao_b.status_code == 200
+
+    resposta = client.get(
+        f"/api/leilao/exportar?q=mesa&lote_id={lote_a['id']}"
+    )
+
+    assert resposta.status_code == 200
+    assert resposta.mimetype == (
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    dados = pd.read_excel(BytesIO(resposta.data), dtype=object)
+    assert len(dados) == 11
+    assert dados['Descrição'].tolist() == [
+        f'Mesa {indice}' for indice in range(1, 12)
+    ]
+    assert dados['Lote'].tolist() == [
+        'Lote 1 · Depósito A',
+    ] * 11
+    assert 'Plaqueta vinculada' in dados.columns
+
+
+def test_importacao_leilao_usa_coluna_lote_e_avisa_divergencia_antes_de_gravar(client):
+    lote_um = post(
+        client,
+        '/api/leilao/lotes',
+        json={'nome': 'Depósito A'},
+    ).get_json()['lote']
+    lote_dois = post(
+        client,
+        '/api/leilao/lotes',
+        json={'nome': 'Depósito B'},
+    ).get_json()['lote']
+    planilha = BytesIO()
+    pd.DataFrame([
+        {'Descrição': 'Mesa 1', 'LOTE': 1},
+        {'Descrição': 'Mesa 2', 'LOTE': 'Lote 01'},
+        {'Descrição': 'Mesa 3', 'LOTE': 2},
+        {'Descrição': 'Mesa 4', 'LOTE': ''},
+        {'Descrição': 'Mesa 5', 'LOTE': 3},
+    ]).to_excel(planilha, index=False)
+    conteudo = planilha.getvalue()
+
+    analise = post(
+        client,
+        '/api/leilao/importar/analisar',
+        data={
+            'arquivo': (BytesIO(conteudo), 'leilao.xlsx'),
+            'lote_id': lote_dois['id'],
+        },
+        content_type='multipart/form-data',
+    )
+
+    assert analise.status_code == 200, analise.get_json()
+    resultado = analise.get_json()
+    plano = resultado['analise']['lotes_importacao']
+    assert plano['coluna_detectada'] is True
+    assert plano['lotes_criados'] == ['Lote 03']
+    assert [
+        (grupo['nome'], grupo['quantidade'])
+        for grupo in plano['grupos']
+    ] == [
+        ('Depósito A', 2),
+        ('Depósito B', 2),
+        ('Lote 03', 1),
+    ]
+    assert [
+        (divergencia['lote_planilha'], divergencia['quantidade'])
+        for divergencia in plano['divergencias']
+    ] == [('Depósito A', 2), ('Lote 03', 1)]
+    estado_antes_da_confirmacao = client.get('/api/leilao').get_json()
+    assert estado_antes_da_confirmacao['itens'] == []
+    assert [lote['nome'] for lote in estado_antes_da_confirmacao['lotes']] == [
+        'Depósito A',
+        'Depósito B',
+    ]
+
+    importacao = post(
+        client,
+        '/api/leilao/importar',
+        data={
+            'arquivo': (BytesIO(conteudo), 'leilao.xlsx'),
+            'lote_id': lote_dois['id'],
+            'token_analise': resultado['token_analise'],
+            'indices_aprovados': '[]',
+        },
+        content_type='multipart/form-data',
+    )
+
+    assert importacao.status_code == 200, importacao.get_json()
+    assert importacao.get_json()['lotes_criados'] == ['Lote 03']
+    estado = client.get('/api/leilao').get_json()
+    assert [lote['nome'] for lote in estado['lotes']] == [
+        'Depósito A',
+        'Depósito B',
+        'Lote 03',
+    ]
+    itens = estado['itens']
+    assert itens[0]['lote_id'] == itens[1]['lote_id']
+    assert itens[0]['lote_id'] == lote_um['id']
+    assert itens[2]['lote_id'] == itens[3]['lote_id'] == lote_dois['id']
+    assert itens[4]['lote_id'] != lote_dois['id']
+    assert all('lote_importado' not in item for item in itens)
+
+
+def test_importacao_leilao_exige_aprovacao_da_analise(client):
+    importacao = post(
+        client,
+        '/api/leilao/importar',
+        data={
+            'arquivo': (
+                BytesIO('Descrição;Setor\nMesa;Setor A\n'.encode()),
+                'leilao.csv',
+            ),
+        },
+        content_type='multipart/form-data',
+    )
+
+    assert importacao.status_code == 409
+    assert 'analise' in importacao.get_json()['error'].lower()
+    assert client.get('/api/leilao').get_json()['itens'] == []
+
+
+def test_importacao_leilao_rejeita_arquivo_diferente_da_analise_aprovada(client):
+    analisado = 'Descrição;Plaqueta\nMesa;123\n'.encode()
+    alterado = 'Descrição;Plaqueta\nMesa;124\n'.encode()
+    analise = post(
+        client,
+        '/api/leilao/importar/analisar',
+        data={'arquivo': (BytesIO(analisado), 'leilao.csv')},
+        content_type='multipart/form-data',
+    )
+    resultado = analise.get_json()
+
+    importacao = post(
+        client,
+        '/api/leilao/importar',
+        data={
+            'arquivo': (BytesIO(alterado), 'leilao.csv'),
+            'token_analise': resultado['token_analise'],
+            'indices_aprovados': '[]',
+        },
+        content_type='multipart/form-data',
+    )
+
+    assert importacao.status_code == 409
+    assert client.get('/api/leilao').get_json()['itens'] == []
+
+
 def test_lista_leilao_importa_excel_e_inclui_item_manual(client):
     workbook = BytesIO()
     pd.DataFrame([{
@@ -638,11 +1051,10 @@ def test_lista_leilao_importa_excel_e_inclui_item_manual(client):
         'Setor atual': 'Setor B',
         'Observação': 'Precisa de reparo',
     }]).to_excel(workbook, index=False)
-    importacao = post(
+    importacao = importar_arquivo_leilao_aprovado(
         client,
-        '/api/leilao/importar',
-        data={'arquivo': (BytesIO(workbook.getvalue()), 'leilao.xlsx')},
-        content_type='multipart/form-data',
+        workbook.getvalue(),
+        'leilao.xlsx',
     )
     assert importacao.status_code == 200, importacao.get_json()
 
@@ -653,6 +1065,7 @@ def test_lista_leilao_importa_excel_e_inclui_item_manual(client):
             'descricao': 'Armário de aço',
             'setor': 'Setor C',
             'data': '2021-05-10',
+            'valor': '250,75',
             'observacao': 'Lote 2',
         },
     )
@@ -661,6 +1074,7 @@ def test_lista_leilao_importa_excel_e_inclui_item_manual(client):
     assert len(itens) == 2
     assert {item['descricao'] for item in itens} == {'Cadeira', 'Armário de aço'}
     assert {item['observacao'] for item in itens} == {'Precisa de reparo', 'Lote 2'}
+    assert {item['valor'] for item in itens} == {'', '250.75'}
     assert all(item['situacao'] == 'PENDENTE_IDENTIFICACAO' for item in itens)
 
 
@@ -675,6 +1089,18 @@ def test_observacao_item_leilao_tem_limite_de_caracteres(client):
     assert 'observação' in resposta.get_json()['error'].lower()
 
 
+@pytest.mark.parametrize('valor', ['-1.00', 'inválido'])
+def test_inclusao_manual_leilao_rejeita_valor_invalido(client, valor):
+    resposta = post(
+        client,
+        '/api/leilao/manual',
+        json={'descricao': 'Cadeira', 'valor': valor},
+    )
+
+    assert resposta.status_code == 400
+    assert client.get('/api/leilao').get_json()['total'] == 0
+
+
 def test_inclusao_manual_leilao_cria_item_individual_para_cada_unidade(client):
     lote = post(client, '/api/leilao/lotes', json={'nome': 'Cadeiras'})
     lote_id = lote.get_json()['lote']['id']
@@ -686,6 +1112,7 @@ def test_inclusao_manual_leilao_cria_item_individual_para_cada_unidade(client):
             'descricao': 'Cadeira de escritório',
             'setor': 'Setor A',
             'quantidade': 3,
+            'valor': '1250,50',
             'lote_id': lote_id,
         },
     )
@@ -696,6 +1123,7 @@ def test_inclusao_manual_leilao_cria_item_individual_para_cada_unidade(client):
     assert len(payload['itens']) == 3
     assert len({item['id'] for item in payload['itens']}) == 3
     assert all(item['descricao'] == 'Cadeira de escritório' for item in payload['itens'])
+    assert all(item['valor'] == '1250.50' for item in payload['itens'])
     assert all(item['lote_id'] == lote_id for item in payload['itens'])
     assert all(item['situacao'] == 'PENDENTE_IDENTIFICACAO' for item in payload['itens'])
     lista = client.get('/api/leilao').get_json()
@@ -723,7 +1151,7 @@ def test_item_leilao_pode_ser_editado_e_excluido_sem_alterar_base(client, monkey
         'Setor Atual': 'Setor A',
         'STATUS': 'PEND',
     }])
-    monkeypatch.setattr(app_module, '_carregar_base', lambda: base)
+    monkeypatch.setattr(leilao_routes, '_carregar_base', lambda: base)
 
     incluido = post(
         client,
@@ -747,6 +1175,7 @@ def test_item_leilao_pode_ser_editado_e_excluido_sem_alterar_base(client, monkey
             'setor': 'Setor A',
             'data': '2020-01-01',
             'observacao': 'Aguardar avaliação',
+            'valor': '1.234,56',
         },
     )
     assert edicao.status_code == 200, edicao.get_json()
@@ -755,15 +1184,60 @@ def test_item_leilao_pode_ser_editado_e_excluido_sem_alterar_base(client, monkey
     assert item_atualizado['plaqueta_informada'] == '123'
     assert item_atualizado['data'] == '2020-01-01'
     assert item_atualizado['observacao'] == 'Aguardar avaliação'
+    assert item_atualizado['valor'] == '1234.56'
     assert item_atualizado['situacao'] == 'IDENTIFICADO'
     assert item_atualizado['plaqueta_vinculada'] == '000123'
     assert base.iloc[0]['STATUS'] == 'PEND'
 
     exclusao = post(client, f'/api/leilao/{item_id}/excluir', json={})
     assert exclusao.status_code == 200, exclusao.get_json()
+    assert 'lista de leilão' in exclusao.get_json()['mensagem']
     assert client.get('/api/leilao').get_json()['itens'] == []
+    assert base.iloc[0]['STATUS'] == 'PEND'
     nao_encontrado = post(client, f'/api/leilao/{item_id}/excluir', json={})
     assert nao_encontrado.status_code == 404
+
+
+def test_itens_leilao_selecionados_podem_ser_excluidos_em_grupo(client):
+    lote = post(client, '/api/leilao/lotes', json={'nome': 'Móveis'})
+    lote_id = lote.get_json()['lote']['id']
+    incluido = post(
+        client,
+        '/api/leilao/manual',
+        json={'descricao': 'Cadeira', 'quantidade': 3, 'lote_id': lote_id},
+    )
+    ids = [item['id'] for item in incluido.get_json()['itens']]
+
+    resposta = post(
+        client,
+        '/api/leilao/excluir-selecionados',
+        json={'ids': ids[:2]},
+    )
+
+    assert resposta.status_code == 200, resposta.get_json()
+    assert resposta.get_json()['excluidos'] == 2
+    estado = client.get('/api/leilao').get_json()
+    assert [item['id'] for item in estado['itens']] == [ids[2]]
+    assert estado['itens'][0]['lote_id'] == lote_id
+    assert estado['lotes'][0]['nome'] == 'Móveis'
+
+
+def test_exclusao_em_grupo_de_leilao_e_atomica_se_houver_id_invalido(client):
+    incluido = post(
+        client,
+        '/api/leilao/manual',
+        json={'descricao': 'Cadeira', 'quantidade': 2},
+    )
+    ids = [item['id'] for item in incluido.get_json()['itens']]
+
+    resposta = post(
+        client,
+        '/api/leilao/excluir-selecionados',
+        json={'ids': [ids[0], 'id-inexistente']},
+    )
+
+    assert resposta.status_code == 404
+    assert [item['id'] for item in client.get('/api/leilao').get_json()['itens']] == ids
 
 
 def test_lotes_leilao_organizam_itens_sem_alterar_cadastro_patrimonial(client):
@@ -778,7 +1252,7 @@ def test_lotes_leilao_organizam_itens_sem_alterar_cadastro_patrimonial(client):
         'plaqueta_vinculada': '',
     }]
     DADOS_TRABALHO_DIR.mkdir(parents=True, exist_ok=True)
-    app_module._arquivo_leilao().write_text(
+    servicos_leilao._arquivo_leilao().write_text(
         json.dumps(legado),
         encoding='utf-8',
     )
@@ -851,20 +1325,38 @@ def test_lotes_leilao_organizam_itens_sem_alterar_cadastro_patrimonial(client):
     assert estado['lotes'][0]['nome'] == 'Eletrônicos'
 
 
+def test_lotes_leilao_rejeitam_nomes_repetidos_ao_criar_e_renomear(client):
+    primeiro = post(client, '/api/leilao/lotes', json={'nome': 'Móveis'})
+    assert primeiro.status_code == 200
+    primeiro_id = primeiro.get_json()['lote']['id']
+
+    duplicado = post(client, '/api/leilao/lotes', json={'nome': ' moveis '})
+    assert duplicado.status_code == 409
+    assert 'já existe' in duplicado.get_json()['error'].lower()
+
+    segundo = post(client, '/api/leilao/lotes', json={'nome': 'Equipamentos'})
+    assert segundo.status_code == 200
+    segundo_id = segundo.get_json()['lote']['id']
+    renomear = post(
+        client,
+        f'/api/leilao/lotes/{segundo_id}/editar',
+        json={'nome': 'MÓVEIS'},
+    )
+    assert renomear.status_code == 409
+    assert [
+        lote['nome'] for lote in client.get('/api/leilao').get_json()['lotes']
+    ] == ['Móveis', 'Equipamentos']
+    assert client.get('/api/leilao').get_json()['lotes'][0]['id'] == primeiro_id
+
+
 def test_importacao_de_leilao_pode_adicionar_itens_diretamente_a_um_lote(client):
     lote = post(client, '/api/leilao/lotes', json={'nome': 'Lote importado'})
     lote_id = lote.get_json()['lote']['id']
-    importacao = post(
+    importacao = importar_arquivo_leilao_aprovado(
         client,
-        '/api/leilao/importar',
-        data={
-            'lote_id': lote_id,
-            'arquivo': (
-                BytesIO('Descrição;Setor\nCadeira;Setor A\n'.encode()),
-                'leilao.csv',
-            ),
-        },
-        content_type='multipart/form-data',
+        'Descrição;Setor\nCadeira;Setor A\n'.encode(),
+        'leilao.csv',
+        lote_id,
     )
 
     assert importacao.status_code == 200, importacao.get_json()
@@ -972,6 +1464,43 @@ def test_relatorios_da_busca_exportam_exatamente_os_filtros_aplicados(client):
     assert vazio.status_code == 400
 
 
+def test_relatorio_excel_da_busca_inclui_todas_as_colunas_originais_sh3(client):
+    csv_sh3 = (
+        'Código;Plaqueta;Descrição;Modelo;Setor Atual;Data;Fabricante SH3;Valor Atual\n'
+        '001;000123;Mesa original;M1;Setor A;01/02/2024;Fabricante X;900,00\n'
+    )
+    assert enviar_csv(client, conteudo=csv_sh3).status_code == 200
+    resultado = criar_resultado_excel([{
+        'Código': '001',
+        'Plaqueta': '000123',
+        'Descrição': 'Mesa conferida',
+        'Setor Atual': 'Setor B',
+        'Data': '05/03/2025',
+        'STATUS': 'PEND',
+    }])
+    assert enviar_resultado(client, resultado).status_code == 200
+
+    excel = post(client, '/api/relatorios/busca/excel', json={})
+    assert excel.status_code == 200, excel.get_json()
+    resposta = client.get(f"/api/relatorios/{excel.get_json()['arquivo']}")
+    workbook = load_workbook(BytesIO(resposta.data), data_only=True)
+    planilha = workbook['Itens_Filtrados']
+    colunas = {celula.value: celula.column for celula in planilha[1]}
+
+    assert planilha.cell(2, colunas['Descrição']).value == 'Mesa conferida'
+    assert planilha.cell(2, colunas['Setor Atual']).value == 'Setor B'
+    assert planilha.cell(2, colunas['SH3 - Código']).value == '001'
+    assert planilha.cell(2, colunas['SH3 - Plaqueta']).value == '000123'
+    assert planilha.cell(2, colunas['SH3 - Descrição']).value == 'Mesa original'
+    assert planilha.cell(2, colunas['SH3 - Setor Atual']).value == 'Setor A'
+    assert planilha.cell(2, colunas['SH3 - Data']).value == '01/02/2024'
+    assert planilha.cell(2, colunas['Fabricante SH3']).value == 'Fabricante X'
+    assert planilha.cell(2, colunas['Valor Atual']).value == '900,00'
+
+    workbook.close()
+    resposta.close()
+
+
 def test_restauracao_exige_confirmacao_e_backup_web_valido(client):
     assert preparar_base(client).status_code == 200
     backup = post(client, '/api/backups', json={}).get_json()['arquivo']
@@ -991,30 +1520,3 @@ def test_restauracao_exige_confirmacao_e_backup_web_valido(client):
         json={'confirmado': True},
     )
     assert invalido.status_code == 400
-
-
-def test_obter_endereco_tailscale_consulta_ipv4(monkeypatch):
-    chamadas = []
-    monkeypatch.setattr(app_module.shutil, 'which', lambda comando: 'tailscale.exe')
-
-    def executar(comando, **kwargs):
-        chamadas.append((comando, kwargs))
-        return SimpleNamespace(returncode=0, stdout='100.85.183.31\n', stderr='')
-
-    monkeypatch.setattr(app_module.subprocess, 'run', executar)
-
-    endereco, erro = app_module._obter_endereco_tailscale()
-
-    assert endereco == '100.85.183.31'
-    assert erro is None
-    assert chamadas[0][0] == ['tailscale.exe', 'ip', '-4']
-    assert chamadas[0][1]['timeout'] == 3
-
-
-def test_obter_endereco_tailscale_avisa_quando_comando_nao_existe(monkeypatch):
-    monkeypatch.setattr(app_module.shutil, 'which', lambda comando: None)
-
-    endereco, erro = app_module._obter_endereco_tailscale()
-
-    assert endereco is None
-    assert erro == 'comando tailscale não encontrado'

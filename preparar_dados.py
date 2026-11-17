@@ -237,7 +237,12 @@ def carregar_csv_entrada(path=ARQUIVO_ENTRADA):
     escritor = csv.writer(buffer, delimiter=';', lineterminator='\n')
     escritor.writerows(linhas_normalizadas)
     buffer.seek(0)
-    return pd.read_csv(buffer, sep=';', on_bad_lines='error')
+    return pd.read_csv(
+        buffer,
+        sep=';',
+        on_bad_lines='error',
+        dtype={'Código': str, 'Plaqueta': str},
+    )
 
 
 def importar_csv_entrada(path_origem):

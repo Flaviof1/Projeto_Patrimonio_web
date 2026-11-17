@@ -104,3 +104,46 @@ def enriquecer_com_dados_patrimoniais(df_conferencia, df_patrimonial=None):
                 dados.at[indice, campo] = valor
 
     return dados
+
+
+def anexar_colunas_csv_sh3(df_conferencia, df_sh3):
+    """Acrescenta ao relatório as colunas originais do SH3 sem sobrescrever a conferência."""
+    dados = df_conferencia.copy()
+    if df_sh3 is None or df_sh3.empty:
+        return dados
+
+    colunas_saida = {}
+    for coluna in df_sh3.columns:
+        nome_saida = str(coluna)
+        if nome_saida in dados.columns:
+            nome_saida = f'SH3 - {nome_saida}'
+        while nome_saida in dados.columns or nome_saida in colunas_saida.values():
+            nome_saida = f'SH3 - {nome_saida}'
+        colunas_saida[coluna] = nome_saida
+        dados[nome_saida] = pd.Series('', index=dados.index, dtype=object)
+
+    por_codigo = {}
+    por_plaqueta = {}
+    for _, linha in df_sh3.iterrows():
+        valores = {
+            colunas_saida[coluna]: linha[coluna]
+            for coluna in df_sh3.columns
+        }
+        codigo = _normalizar_codigo(linha.get('Código', ''))
+        plaqueta = _normalizar_plaqueta(linha.get('Plaqueta', ''))
+        if codigo and codigo not in por_codigo:
+            por_codigo[codigo] = valores
+        if plaqueta and plaqueta not in por_plaqueta:
+            por_plaqueta[plaqueta] = valores
+
+    for indice, linha in dados.iterrows():
+        valores = por_codigo.get(_normalizar_codigo(linha.get('Código', '')))
+        if valores is None:
+            valores = por_plaqueta.get(
+                _normalizar_plaqueta(linha.get('Plaqueta', '')))
+        if valores is None:
+            continue
+        for coluna, valor in valores.items():
+            dados.at[indice, coluna] = valor
+
+    return dados

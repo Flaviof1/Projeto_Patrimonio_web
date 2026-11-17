@@ -5,7 +5,12 @@ let currentView = { type: 'none' };
 let lastSearchCount = 0;
 const selectedSearchItems = new Set();
 const selectedConferenceItems = new Set();
+const selectedAuctionItems = new Set();
 const tablePageSize = 50;
+let auctionItems = [];
+let auctionLots = [];
+let auctionCurrentPage = 1;
+const auctionPageSize = 10;
 const multiFilterConfigs = {
   'search-sectors': {
     filter: '#search-sectors-filter',
@@ -464,7 +469,9 @@ function updateBulkDeleteButton() {
     const button = $(selector);
     if (!button) return;
     button.disabled = count === 0;
-    button.textContent = count ? `Excluir selecionados (${count})` : 'Excluir selecionados';
+    button.textContent = count
+      ? `Excluir da planilha principal (${count})`
+      : 'Excluir da planilha principal';
   });
 }
 
@@ -472,7 +479,13 @@ async function deleteSelectedItems(viewType) {
   const selectedItems = viewType === 'sector' ? selectedConferenceItems : selectedSearchItems;
   const ids = Array.from(selectedItems);
   if (!ids.length) return;
-  if (!window.confirm(`Excluir ${ids.length} item(ns) selecionado(s)${viewType === 'sector' ? ' deste setor' : ''} da base patrimonial?`)) return;
+  const contexto = viewType === 'sector' ? ' deste setor' : '';
+  const avisoExclusao = [
+    `ATENÇÃO: você está prestes a excluir ${ids.length} item(ns)${contexto} da PLANILHA PRINCIPAL / base patrimonial.`,
+    'Essa alteração pode causar danos graves e perda de dados no sistema. Não use esta ação para apenas remover itens de uma lista ou resultado de busca.',
+    'Confirme somente se tiver certeza de que deseja excluir esses registros da planilha principal.',
+  ].join('\n\n');
+  if (!window.confirm(avisoExclusao)) return;
   const button = viewType === 'sector'
     ? $('#delete-selected-conference-items')
     : $('#delete-selected-search-items');
@@ -614,6 +627,7 @@ function openEdit(item) {
   $('#edit-status').value = item.STATUS || 'PEND';
   $('#edit-state').value = item.ESTADO || 'EM USO';
   $('#edit-observation').value = item.OBSERVACAO || '';
+  $('#edit-value').value = item.Valor || '';
   $('#edit-photo').value = '';
   const identifier = String(item['Identificador Provisório'] || '');
   const canEditDescription = identifier.startsWith('SEM-ID-')
@@ -659,6 +673,7 @@ async function savePhoto(remove = false) {
   form.append('status', $('#edit-status').value);
   form.append('estado', $('#edit-state').value);
   form.append('observacao', $('#edit-observation').value);
+  form.append('valor', $('#edit-value').value);
   if (!$('#description-field').hidden) {
     form.append('descricao', $('#edit-description').value);
   }
@@ -722,16 +737,15 @@ async function importAuctionList(form) {
     notify('Selecione um arquivo Excel ou CSV.', 'error');
     return;
   }
+  clearAuctionImportPreview(form);
   const body = new FormData();
   body.append('arquivo', file);
   body.append('lote_id', form.querySelector('.auction-target-lot').value);
   const button = form.querySelector('button[type="submit"]');
-  setBusy(button, true, 'Importando…');
+  setBusy(button, true, 'Analisando plaquetas…');
   try {
-    const result = await api('/api/leilao/importar', { method: 'POST', body });
-    form.reset();
-    notify(`${result.mensagem} Total na lista: ${result.total}.`);
-    await loadAuctionList();
+    const result = await api('/api/leilao/importar/analisar', { method: 'POST', body });
+    renderAuctionImportPreview(form, result.analise, result.token_analise);
   } catch (error) {
     notify(error.message, 'error');
   } finally {
@@ -739,14 +753,243 @@ async function importAuctionList(form) {
   }
 }
 
+function clearAuctionImportPreview(form) {
+  const preview = form.querySelector('.auction-import-preview');
+  preview.replaceChildren();
+  preview.hidden = true;
+}
+
+function renderAuctionImportPreview(form, analise, token) {
+  const preview = form.querySelector('.auction-import-preview');
+  const { resumo, propostas } = analise;
+  const mensagem = document.createElement('p');
+  const detalhes = [
+    `${resumo.total} item(ns) analisado(s).`,
+    `${resumo.propostas} setor(es) sugerido(s) pela plaqueta.`,
+    `${resumo.sem_plaqueta} item(ns) sem plaqueta permanecerão como estão.`,
+  ];
+  if (resumo.descricao_provisoria) {
+    detalhes.push(
+      `${resumo.descricao_provisoria} item(ns) sem descrição usarão a plaqueta como identificação provisória; descrições encontradas no cadastro serão salvas.`,
+    );
+  }
+  if (resumo.descricoes_encontradas) {
+    detalhes.push(
+      `${resumo.descricoes_encontradas} descrição(ões) serão preenchidas pelo cadastro patrimonial.`,
+    );
+  }
+  if (!analise.base_disponivel) {
+    detalhes.push(
+      `${resumo.sem_base} item(ns) com plaqueta não puderam ser analisados porque não há base patrimonial preparada.`,
+    );
+  } else {
+    if (resumo.nao_encontrada) {
+      detalhes.push(`${resumo.nao_encontrada} plaqueta(s) não encontrada(s); setor mantido.`);
+    }
+    if (resumo.ambiguas) {
+      detalhes.push(`${resumo.ambiguas} plaqueta(s) duplicada(s) na base; setor mantido para conferência manual.`);
+    }
+    if (resumo.sem_setor) {
+      detalhes.push(`${resumo.sem_setor} item(ns) encontrados sem setor cadastrado; setor mantido.`);
+    }
+    if (resumo.setor_igual) {
+      detalhes.push(`${resumo.setor_igual} item(ns) já estão no setor cadastrado.`);
+    }
+  }
+  mensagem.textContent = detalhes.join(' ');
+  preview.append(mensagem);
+
+  const lotesImportacao = analise.lotes_importacao || {};
+  const gruposLote = lotesImportacao.grupos || [];
+  const resumoLotes = document.createElement('p');
+  if (lotesImportacao.coluna_detectada) {
+    resumoLotes.textContent =
+      `Coluna LOTE identificada. Distribuição prevista: ${gruposLote.map(grupo =>
+        `${grupo.nome}: ${grupo.quantidade} item(ns)`
+      ).join('; ')}.`;
+  } else if (lotesImportacao.lote_formulario) {
+    resumoLotes.textContent =
+      `Coluna LOTE não identificada; todos os itens serão atribuídos ao lote “${lotesImportacao.lote_formulario}”.`;
+  } else {
+    resumoLotes.textContent =
+      'Coluna LOTE não identificada e nenhum lote foi escolhido; todos os itens permanecerão sem lote.';
+  }
+  preview.append(resumoLotes);
+
+  const descricoesResolvidas = analise.descricoes_resolvidas || [];
+  if (descricoesResolvidas.length) {
+    const avisoDescricoes = document.createElement('p');
+    avisoDescricoes.textContent =
+      'A descrição provisória será substituída quando a plaqueta corresponder a um único item do cadastro:';
+    preview.append(avisoDescricoes);
+    const listaDescricoes = document.createElement('ul');
+    listaDescricoes.className = 'auction-import-preview-list';
+    descricoesResolvidas.forEach(resolvida => {
+      const linha = document.createElement('li');
+      linha.textContent =
+        `Plaqueta ${resolvida.plaqueta}: ${resolvida.descricao_cadastro}`;
+      listaDescricoes.append(linha);
+    });
+    preview.append(listaDescricoes);
+  }
+
+  const lotesCriados = lotesImportacao.lotes_criados || [];
+  if (lotesCriados.length) {
+    const criacaoLotes = document.createElement('p');
+    criacaoLotes.textContent =
+      `Após a confirmação, serão criados ${lotesCriados.length} lote(s): ${lotesCriados.join(', ')}.`;
+    preview.append(criacaoLotes);
+  }
+
+  const divergenciasLote = lotesImportacao.divergencias || [];
+  if (divergenciasLote.length) {
+    const quantidadeDivergente = divergenciasLote.reduce(
+      (total, divergencia) => total + divergencia.quantidade,
+      0,
+    );
+    const avisoLote = document.createElement('p');
+    avisoLote.className = 'auction-import-warning';
+    avisoLote.setAttribute('role', 'alert');
+    avisoLote.textContent =
+      `Aviso: ${quantidadeDivergente} item(ns) têm na coluna LOTE um valor diferente do lote escolhido no formulário (“${lotesImportacao.lote_formulario}”). A coluna prevalece nas linhas preenchidas; o lote do formulário será usado quando LOTE estiver vazio. Nada será gravado até você confirmar.`;
+    preview.append(avisoLote);
+
+    const listaDivergencias = document.createElement('ul');
+    listaDivergencias.className = 'auction-import-lot-conflicts';
+    divergenciasLote.forEach(divergencia => {
+      const linha = document.createElement('li');
+      const valores = divergencia.valores_planilha.length
+        ? ` [valores: ${divergencia.valores_planilha.join(', ')}]`
+        : '';
+      linha.textContent =
+        `${divergencia.quantidade} item(ns): ${divergencia.lote_planilha}${valores}`;
+      listaDivergencias.append(linha);
+    });
+    preview.append(listaDivergencias);
+  }
+
+  const explicacao = document.createElement('p');
+  explicacao.textContent =
+    'Confira as sugestões. Somente os itens marcados terão o setor atualizado na lista de leilão; o cadastro patrimonial não será alterado.';
+  preview.append(explicacao);
+
+  const lista = document.createElement('div');
+  lista.className = 'auction-import-preview-list';
+  propostas.forEach(proposta => {
+    const linha = document.createElement('label');
+    linha.className = 'auction-import-preview-item';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = true;
+    checkbox.dataset.proposalIndex = String(proposta.indice);
+    checkbox.setAttribute(
+      'aria-label',
+      `Aprovar setor ${proposta.setor_sugerido} para ${proposta.descricao}`,
+    );
+    const texto = document.createElement('span');
+    texto.textContent =
+      `${proposta.descricao} · Plaqueta ${proposta.plaqueta} · ` +
+      `${proposta.setor_atual || 'Sem setor'} → ${proposta.setor_sugerido}` +
+      (proposta.descricao_cadastro
+        ? ` · Cadastro: ${proposta.descricao_cadastro}`
+        : '');
+    linha.append(checkbox, texto);
+    lista.append(linha);
+  });
+  if (propostas.length) {
+    preview.append(lista);
+  } else {
+    const semSugestoes = document.createElement('p');
+    semSugestoes.textContent =
+      'Nenhum setor será alterado. Você ainda pode aprovar a importação dos itens como estão.';
+    preview.append(semSugestoes);
+  }
+
+  const acoes = document.createElement('div');
+  acoes.className = 'search-actions';
+  const aprovar = createAuctionButton(
+    '',
+    () => confirmarImportacaoLeilao(form, token, analise, aprovar),
+    'button button-primary',
+  );
+  const atualizarBotao = () => {
+    const quantidade = lista.querySelectorAll('input[type="checkbox"]:checked').length;
+    aprovar.textContent = quantidade
+      ? `Aprovar ${quantidade} setor(es) e importar`
+      : 'Aprovar análise e importar sem alterar setores';
+  };
+  lista.addEventListener('change', atualizarBotao);
+  atualizarBotao();
+  const cancelar = createAuctionButton(
+    'Cancelar análise',
+    () => clearAuctionImportPreview(form),
+    'button button-muted',
+  );
+  acoes.append(aprovar, cancelar);
+  preview.append(acoes);
+  preview.hidden = false;
+}
+
+async function confirmarImportacaoLeilao(form, token, analise, button) {
+  const file = form.querySelector('input[type="file"]').files[0];
+  if (!file) {
+    clearAuctionImportPreview(form);
+    notify('Selecione novamente o arquivo para continuar.', 'error');
+    return;
+  }
+  const preview = form.querySelector('.auction-import-preview');
+  const indicesAprovados = Array.from(
+    preview.querySelectorAll('input[data-proposal-index]:checked'),
+    checkbox => Number(checkbox.dataset.proposalIndex),
+  );
+  const quantidade = indicesAprovados.length;
+  let confirmacao = quantidade
+    ? `Aprovar a atualização de setor para ${quantidade} item(ns) e importar o arquivo?`
+    : 'Importar os itens sem alterar os setores?';
+  const divergenciasLote = analise.lotes_importacao
+    ? analise.lotes_importacao.divergencias || []
+    : [];
+  if (divergenciasLote.length) {
+    confirmacao =
+      `Atenção: a coluna LOTE diverge do lote escolhido no formulário em ` +
+      `${divergenciasLote.reduce((total, divergencia) =>
+        total + divergencia.quantidade, 0)} item(ns).\n\n${confirmacao}`;
+  }
+  if (!window.confirm(confirmacao)) return;
+
+  const corpo = new FormData();
+  corpo.append('arquivo', file);
+  corpo.append('lote_id', form.querySelector('.auction-target-lot').value);
+  corpo.append('token_analise', token);
+  corpo.append('indices_aprovados', JSON.stringify(indicesAprovados));
+  const botaoAnalise = form.querySelector('button[type="submit"]');
+  botaoAnalise.disabled = true;
+  setBusy(button, true, 'Importando…');
+  try {
+    const result = await api('/api/leilao/importar', { method: 'POST', body: corpo });
+    form.reset();
+    clearAuctionImportPreview(form);
+    notify(`${result.mensagem} Total na lista: ${result.total}.`);
+    await loadAuctionList();
+  } catch (error) {
+    notify(error.message, 'error');
+  } finally {
+    setBusy(button, false);
+    botaoAnalise.disabled = false;
+  }
+}
+
 async function loadAuctionList() {
   try {
     const data = await api('/api/leilao');
     const lotes = data.lotes || [];
+    auctionItems = data.itens || [];
+    auctionLots = lotes;
     $('#auction-summary').textContent =
       `${data.total} item(ns) · ${lotes.length} lote(s)`;
     updateAuctionLotSelects(lotes);
-    renderAuctionList(data.itens, lotes);
+    updateAuctionListLotFilter(lotes);
+    renderAuctionList(auctionItems, auctionLots);
   } catch (error) {
     notify(`Não foi possível carregar a lista de leilão: ${error.message}`, 'error');
   }
@@ -770,6 +1013,30 @@ function updateAuctionLotSelects(lotes) {
   });
 }
 
+function updateAuctionListLotFilter(lotes) {
+  const select = $('#auction-list-lot');
+  const selecionado = select.value;
+  select.replaceChildren();
+  [
+    ['', 'Todos os lotes'],
+    ['__sem_lote__', 'Disponíveis, sem lote'],
+  ].forEach(([value, label]) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    select.append(option);
+  });
+  lotes.forEach(lote => {
+    const option = document.createElement('option');
+    option.value = lote.id;
+    option.textContent = `Lote ${lote.numero} · ${lote.nome}`;
+    select.append(option);
+  });
+  select.value = Array.from(select.options).some(option => option.value === selecionado)
+    ? selecionado
+    : '';
+}
+
 function createAuctionButton(text, handler, className = 'button button-muted') {
   const button = document.createElement('button');
   button.type = 'button';
@@ -782,12 +1049,94 @@ function createAuctionButton(text, handler, className = 'button button-muted') {
 function renderAuctionList(items, lots) {
   const container = $('#auction-list');
   container.replaceChildren();
+  const itemIds = new Set(items.map(item => item.id));
+  selectedAuctionItems.forEach(id => {
+    if (!itemIds.has(id)) selectedAuctionItems.delete(id);
+  });
+  const termo = normalizeAuctionFilter($('#auction-list-search').value);
+  const loteSelecionado = $('#auction-list-lot').value;
+  const ordemLotes = new Map(lots.map((lot, index) => [lot.id, index]));
+  const filtrados = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => {
+      if (loteSelecionado === '__sem_lote__' && item.lote_id) return false;
+      if (loteSelecionado && loteSelecionado !== '__sem_lote__'
+        && item.lote_id !== loteSelecionado) return false;
+      if (!termo) return true;
+      const pesquisavel = normalizeAuctionFilter(
+        `${item.descricao || ''} ${item.plaqueta_informada || ''}`,
+      );
+      return pesquisavel.includes(termo);
+    })
+    .sort((a, b) => (
+      (ordemLotes.get(a.item.lote_id) ?? lots.length)
+      - (ordemLotes.get(b.item.lote_id) ?? lots.length)
+      || a.index - b.index
+    ))
+    .map(({ item }) => item);
+  const totalFiltrado = filtrados.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalFiltrado / auctionPageSize));
+  auctionCurrentPage = Math.min(Math.max(auctionCurrentPage, 1), totalPaginas);
+  const primeiroIndice = (auctionCurrentPage - 1) * auctionPageSize;
+  const itensDaPagina = filtrados.slice(
+    primeiroIndice,
+    primeiroIndice + auctionPageSize,
+  );
+  $('#auction-list-summary').textContent = totalFiltrado
+    ? `Mostrando ${primeiroIndice + 1}–${primeiroIndice + itensDaPagina.length} de ${totalFiltrado} item(ns).`
+    : 'Nenhum item corresponde aos filtros.';
+  $('#auction-export-xlsx').disabled = totalFiltrado === 0;
+  renderPagination(
+    $('#auction-pagination'),
+    auctionCurrentPage,
+    auctionPageSize,
+    totalFiltrado,
+    page => {
+      auctionCurrentPage = page;
+      renderAuctionList(items, lots);
+    },
+  );
+
   if (!items.length && !lots.length) {
     container.textContent = 'Nenhum item adicionado à lista de leilão.';
     return;
   }
+  if (termo || loteSelecionado) {
+    if (!totalFiltrado) {
+      container.textContent = 'Tente outro texto ou selecione um lote diferente.';
+      return;
+    }
+  }
+  if (itensDaPagina.length) {
+    const bulkActions = document.createElement('div');
+    bulkActions.className = 'search-actions';
+    const selectAllButton = createAuctionButton(
+      `Selecionar todos os resultados (${totalFiltrado})`,
+      () => {
+        selectedAuctionItems.clear();
+        filtrados.forEach(item => selectedAuctionItems.add(item.id));
+        renderAuctionList(items, lots);
+      },
+      'button button-secondary',
+    );
+    const deleteButton = createAuctionButton(
+      'Excluir selecionados',
+      deleteSelectedAuctionItems,
+      'button button-muted',
+    );
+    deleteButton.id = 'delete-selected-auction-items';
+    deleteButton.disabled = selectedAuctionItems.size === 0;
+    const help = document.createElement('span');
+    help.className = 'muted';
+    help.textContent =
+      'A seleção inclui todos os resultados filtrados, mesmo em outras páginas, e substitui a seleção anterior.';
+    bulkActions.append(selectAllButton, deleteButton, help);
+    container.append(bulkActions);
+  }
 
   lots.forEach((lot, index) => {
+    const lotItems = itensDaPagina.filter(item => item.lote_id === lot.id);
+    if (!lotItems.length && (totalFiltrado || termo || loteSelecionado)) return;
     const group = document.createElement('section');
     group.className = 'auction-lot-group';
     const heading = document.createElement('div');
@@ -803,22 +1152,29 @@ function renderAuctionList(items, lots) {
     );
     controls.children[1].disabled = index === 0;
     controls.children[2].disabled = index === lots.length - 1;
-    const lotItems = items.filter(item => item.lote_id === lot.id);
-    if (!lotItems.length) {
-      controls.append(createAuctionButton('Excluir lote vazio', async () => {
-        if (!window.confirm(`Excluir o lote "${lot.nome}"?`)) return;
-        try {
-          const result = await api(`/api/leilao/lotes/${encodeURIComponent(lot.id)}/excluir`, {
-            method: 'POST',
-            body: {},
-          });
-          notify(result.mensagem);
-          await loadAuctionList();
-        } catch (error) {
-          notify(error.message, 'error');
-        }
-      }));
-    }
+    controls.append(createAuctionButton('Excluir lote', async () => {
+      if (lotItems.length) {
+        const quantidade = lotItems.length === 1
+          ? '1 item'
+          : `${lotItems.length} itens`;
+        notify(
+          `Este lote contém ${quantidade}. Mova ou remova os itens antes de excluir o lote.`,
+          'error',
+        );
+        return;
+      }
+      if (!window.confirm(`Excluir o lote "${lot.nome}"?`)) return;
+      try {
+        const result = await api(`/api/leilao/lotes/${encodeURIComponent(lot.id)}/excluir`, {
+          method: 'POST',
+          body: {},
+        });
+        notify(result.mensagem);
+        await loadAuctionList();
+      } catch (error) {
+        notify(error.message, 'error');
+      }
+    }));
     heading.append(title, controls);
     group.append(heading);
     if (lotItems.length) {
@@ -832,7 +1188,7 @@ function renderAuctionList(items, lots) {
     container.append(group);
   });
 
-  const availableItems = items.filter(item => !item.lote_id);
+  const availableItems = itensDaPagina.filter(item => !item.lote_id);
   if (availableItems.length) {
     const group = document.createElement('section');
     group.className = 'auction-lot-group';
@@ -844,10 +1200,46 @@ function renderAuctionList(items, lots) {
   }
 }
 
+function normalizeAuctionFilter(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLocaleLowerCase('pt-BR')
+    .replace(/\s+/g, ' ');
+}
+
+async function exportAuctionList(button) {
+  const params = new URLSearchParams({
+    q: $('#auction-list-search').value.trim(),
+    lote_id: $('#auction-list-lot').value,
+  });
+  setBusy(button, true, 'Gerando Excel…');
+  try {
+    const response = await fetch(`/api/leilao/exportar?${params.toString()}`);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || `Falha na solicitação (${response.status}).`);
+    }
+    const arquivo = await response.blob();
+    const url = URL.createObjectURL(arquivo);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'itens_leilao.xlsx';
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    notify('Arquivo Excel exportado.');
+  } catch (error) {
+    notify(`Não foi possível exportar os itens: ${error.message}`, 'error');
+  } finally {
+    setBusy(button, false);
+  }
+}
+
 function appendAuctionItemsTable(container, items, lots) {
   const table = document.createElement('table');
   const header = document.createElement('tr');
-  ['Descrição', 'Plaqueta informada', 'Setor', 'Data', 'Observação', 'Situação', 'Organizar em lote', 'Vincular ao patrimônio', 'Ações'].forEach(text => {
+  ['Selecionar', 'Descrição', 'Plaqueta informada', 'Setor', 'Data', 'Valor', 'Observação', 'Situação', 'Organizar em lote', 'Vincular ao patrimônio', 'Ações'].forEach(text => {
     const cell = document.createElement('th');
     cell.textContent = text;
     header.append(cell);
@@ -859,11 +1251,26 @@ function appendAuctionItemsTable(container, items, lots) {
 
   items.forEach(item => {
     const row = document.createElement('tr');
+    const selectionCell = document.createElement('td');
+    selectionCell.dataset.label = 'Selecionar';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = selectedAuctionItems.has(item.id);
+    checkbox.setAttribute('aria-label', `Selecionar ${item.descricao || 'item'} para exclusão`);
+    checkbox.addEventListener('change', () => {
+      checkbox.checked
+        ? selectedAuctionItems.add(item.id)
+        : selectedAuctionItems.delete(item.id);
+      updateAuctionBulkDeleteButton();
+    });
+    selectionCell.append(checkbox);
+    row.append(selectionCell);
     [
       ['Descrição', item.descricao],
       ['Plaqueta informada', item.plaqueta_informada],
       ['Setor', item.setor],
       ['Data', item.data],
+      ['Valor', formatAuctionValue(item.valor)],
       ['Observação', item.observacao],
     ].forEach(([label, value]) => {
       const cell = document.createElement('td');
@@ -873,8 +1280,11 @@ function appendAuctionItemsTable(container, items, lots) {
     });
     const status = document.createElement('td');
     status.dataset.label = 'Situação';
+    const vinculo = item.plaqueta_vinculada
+      ? `Plaqueta ${item.plaqueta_vinculada}`
+      : `Sem plaqueta · ${item.descricao_vinculada || 'bem patrimonial'}`;
     status.textContent = item.situacao === 'IDENTIFICADO'
-      ? `Identificado · Plaqueta ${item.plaqueta_vinculada}`
+      ? `Identificado · ${vinculo}`
       : 'Pendente de identificação';
     row.append(status);
 
@@ -957,7 +1367,7 @@ function appendAuctionItemsTable(container, items, lots) {
         }
       }));
     }
-    controls.append(createAuctionButton('Excluir do sistema', async () => {
+    controls.append(createAuctionButton('Excluir da lista', async () => {
       if (!window.confirm(
         `Excluir "${item.descricao}" da lista de leilão? O cadastro patrimonial não será alterado.`
       )) return;
@@ -978,7 +1388,64 @@ function appendAuctionItemsTable(container, items, lots) {
   });
 
   table.append(body);
-  container.append(table);
+  const scrollHint = document.createElement('p');
+  scrollHint.className = 'auction-scroll-hint';
+  scrollHint.textContent = 'Use a barra horizontal abaixo para ver todas as colunas.';
+  const scrollArea = document.createElement('div');
+  scrollArea.className = 'auction-table-scroll';
+  scrollArea.tabIndex = 0;
+  scrollArea.setAttribute('role', 'region');
+  scrollArea.setAttribute(
+    'aria-label',
+    'Tabela de itens do leilão. Use a barra horizontal para ver todas as colunas.',
+  );
+  scrollArea.append(table);
+  container.append(scrollHint, scrollArea);
+}
+
+function formatAuctionValue(value) {
+  if (value === '' || value === null || value === undefined) return '—';
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(Number(value));
+}
+
+function updateAuctionBulkDeleteButton() {
+  const button = $('#delete-selected-auction-items');
+  if (!button) return;
+  const count = selectedAuctionItems.size;
+  button.disabled = count === 0;
+  button.textContent = count
+    ? `Excluir selecionados (${count})`
+    : 'Excluir selecionados';
+}
+
+async function deleteSelectedAuctionItems() {
+  const ids = Array.from(selectedAuctionItems);
+  if (!ids.length) return;
+  const quantidade = ids.length === 1
+    ? '1 item selecionado'
+    : `${ids.length} itens selecionados`;
+  if (!window.confirm(
+    `Excluir ${quantidade} da lista de leilão? O cadastro patrimonial não será alterado.`
+  )) return;
+  const button = $('#delete-selected-auction-items');
+  setBusy(button, true, 'Excluindo…');
+  try {
+    const result = await api('/api/leilao/excluir-selecionados', {
+      method: 'POST',
+      body: { ids },
+    });
+    selectedAuctionItems.clear();
+    notify(result.mensagem);
+    await loadAuctionList();
+  } catch (error) {
+    notify(error.message, 'error');
+  } finally {
+    setBusy(button, false);
+    updateAuctionBulkDeleteButton();
+  }
 }
 
 async function renameAuctionLot(lot) {
@@ -1025,6 +1492,7 @@ function openAuctionEdit(item) {
   $('#auction-edit-id').value = item.id;
   $('#auction-edit-description').value = item.descricao;
   $('#auction-edit-plaqueta').value = item.plaqueta_informada || '';
+  $('#auction-edit-value').value = item.valor || '';
   sectorSelect.value = item.setor || '';
   $('#auction-edit-date').value = item.data || '';
   $('#auction-edit-observation').value = item.observacao || '';
@@ -1032,6 +1500,19 @@ function openAuctionEdit(item) {
 }
 
 function renderAuctionLinkControls(item, container, suggestions) {
+  const statusesDivergentes = new Set(['DIVERG', 'DIV', 'DIVERGENTE']);
+  const contemDivergente = suggestions.some(candidate =>
+    statusesDivergentes.has(String(candidate.status || '').toUpperCase())
+  );
+  if (contemDivergente) {
+    const warning = document.createElement('p');
+    warning.className = 'auction-link-warning';
+    warning.setAttribute('role', 'alert');
+    warning.textContent =
+      'Atenção: há sugestões marcadas como DIVERG. Confira o setor antes de vincular; o bem pode estar cadastrado em um setor diferente do correto.';
+    container.append(warning);
+  }
+
   const select = document.createElement('select');
   select.setAttribute('aria-label', `Sugestões para ${item.descricao}`);
   const placeholder = document.createElement('option');
@@ -1042,19 +1523,30 @@ function renderAuctionLinkControls(item, container, suggestions) {
   select.append(placeholder);
   suggestions.forEach(candidate => {
     const option = document.createElement('option');
-    option.value = candidate.plaqueta;
+    option.value = String(candidate.id);
+    const identificacao = candidate.plaqueta || `Sem plaqueta · ID ${candidate.id}`;
+    const alertaSetor = statusesDivergentes.has(
+      String(candidate.status || '').toUpperCase()
+    )
+      ? ' · DIVERG — confira o setor'
+      : candidate.status
+        ? ` · ${candidate.status}`
+        : '';
     option.textContent =
-      `${candidate.plaqueta} · ${candidate.descricao} · ${candidate.setor || 'Sem setor'} · ${candidate.similaridade}%`;
+      `${identificacao} · ${candidate.descricao} · ${candidate.setor || 'Sem setor'} · ${candidate.similaridade}%${alertaSetor}`;
     select.append(option);
   });
 
   const manualPlaqueta = document.createElement('input');
   manualPlaqueta.type = 'text';
   manualPlaqueta.maxLength = 100;
-  manualPlaqueta.placeholder = 'Plaqueta confirmada';
+  manualPlaqueta.placeholder = 'Plaqueta confirmada (se não selecionar sugestão)';
   manualPlaqueta.setAttribute('aria-label', `Plaqueta confirmada para ${item.descricao}`);
   select.addEventListener('change', () => {
-    if (select.value) manualPlaqueta.value = select.value;
+    const candidate = suggestions.find(suggestion =>
+      String(suggestion.id) === select.value
+    );
+    manualPlaqueta.value = candidate ? candidate.plaqueta : '';
   });
 
   const linkButton = document.createElement('button');
@@ -1062,19 +1554,38 @@ function renderAuctionLinkControls(item, container, suggestions) {
   linkButton.className = 'button button-secondary';
   linkButton.textContent = 'Confirmar vínculo';
   linkButton.addEventListener('click', async () => {
-    const plaqueta = manualPlaqueta.value.trim() || select.value || item.plaqueta_informada;
-    if (!plaqueta) {
+    const candidate = suggestions.find(suggestion =>
+      String(suggestion.id) === select.value
+    );
+    const plaquetaDigitada = manualPlaqueta.value.trim();
+    const usarIdentificador = candidate && (
+      !plaquetaDigitada || plaquetaDigitada === candidate.plaqueta
+    );
+    const plaqueta = plaquetaDigitada || item.plaqueta_informada;
+    if (!usarIdentificador && !plaqueta) {
       notify('Informe ou selecione uma plaqueta para confirmar o vínculo.', 'error');
       return;
     }
+    const alvo = usarIdentificador
+      ? candidate.plaqueta
+        ? `à plaqueta ${candidate.plaqueta} · ${candidate.descricao} · ${candidate.setor || 'Sem setor'}`
+        : `ao bem sem plaqueta "${candidate.descricao}" · ${candidate.setor || 'Sem setor'}`
+      : `à plaqueta ${plaqueta}`;
+    const alertaDivergente = usarIdentificador && statusesDivergentes.has(
+      String(candidate.status || '').toUpperCase()
+    )
+      ? ' Atenção: status DIVERG; confira se o setor está correto.'
+      : '';
     if (!window.confirm(
-      `Confirma que "${item.descricao}" corresponde à plaqueta ${plaqueta}? Nenhuma baixa será realizada.`
+      `Confirma que "${item.descricao}" corresponde ${alvo}? Nenhuma baixa será realizada.${alertaDivergente}`
     )) return;
     linkButton.disabled = true;
     try {
       const result = await api(`/api/leilao/${encodeURIComponent(item.id)}/vincular`, {
         method: 'POST',
-        body: { plaqueta },
+        body: usarIdentificador
+          ? { identificador: candidate.id }
+          : { plaqueta },
       });
       notify(result.mensagem);
       await loadAuctionList();
@@ -1195,6 +1706,26 @@ $('#auction-csv-form').addEventListener('submit', event => {
   event.preventDefault();
   importAuctionList(event.currentTarget);
 });
+['#auction-xlsx-form', '#auction-csv-form'].forEach(selector => {
+  const form = $(selector);
+  form.querySelector('input[type="file"]').addEventListener('change', () => {
+    clearAuctionImportPreview(form);
+  });
+  form.querySelector('.auction-target-lot').addEventListener('change', () => {
+    clearAuctionImportPreview(form);
+  });
+});
+$('#auction-list-search').addEventListener('input', () => {
+  auctionCurrentPage = 1;
+  renderAuctionList(auctionItems, auctionLots);
+});
+$('#auction-list-lot').addEventListener('change', () => {
+  auctionCurrentPage = 1;
+  renderAuctionList(auctionItems, auctionLots);
+});
+$('#auction-export-xlsx').addEventListener('click', event => {
+  exportAuctionList(event.currentTarget);
+});
 $('#auction-manual-form').addEventListener('submit', async event => {
   event.preventDefault();
   const form = event.currentTarget;
@@ -1204,6 +1735,7 @@ $('#auction-manual-form').addEventListener('submit', async event => {
     plaqueta: $('#auction-plaqueta').value,
     setor: $('#auction-sector').value,
     data: $('#auction-date').value,
+    valor: $('#auction-value').value,
     quantidade: $('#auction-quantity').value,
     observacao: $('#auction-observation').value,
     lote_id: $('#auction-manual-lot').value || null,
@@ -1229,6 +1761,7 @@ $('#auction-edit-form').addEventListener('submit', async event => {
     plaqueta: $('#auction-edit-plaqueta').value,
     setor: $('#auction-edit-sector').value,
     data: $('#auction-edit-date').value,
+    valor: $('#auction-edit-value').value,
     observacao: $('#auction-edit-observation').value,
   };
   setBusy(button, true, 'Salvando…');
@@ -1353,6 +1886,7 @@ $('#edit-form').addEventListener('submit', async event => {
     status: $('#edit-status').value,
     estado: $('#edit-state').value,
     observacao: $('#edit-observation').value,
+    valor: $('#edit-value').value,
   };
   if (!$('#description-field').hidden) body.descricao = $('#edit-description').value;
   try {

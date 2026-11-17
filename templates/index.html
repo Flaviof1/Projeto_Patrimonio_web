@@ -6,7 +6,7 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Gestão de Inventário Patrimonial</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=21">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=28">
 </head>
 <body>
   <header class="topbar">
@@ -23,57 +23,71 @@
 
   <main>
     <section class="card status-card" aria-labelledby="status-title">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Base operacional</p>
-          <h2 id="status-title">Situação da base</h2>
-        </div>
-        <span id="base-badge" class="badge badge-muted">Carregando</span>
-      </div>
-      <p id="base-summary" class="summary">Verificando os dados próprios desta versão web…</p>
-      <div id="base-details" class="status-details"></div>
-      <div id="source-details" class="source-list"></div>
-      <div id="photo-details" class="source-list"></div>
-      <p id="base-error" class="error-text" role="alert" hidden></p>
+      <details class="work-disclosure">
+        <summary>
+          <span>
+            <span class="eyebrow">Base operacional</span>
+            <span id="status-title" class="work-title">Situação da base</span>
+          </span>
+          <span id="base-badge" class="badge badge-muted">Carregando</span>
+        </summary>
+        <p id="base-summary" class="summary">Verificando os dados próprios desta versão web…</p>
+        <div id="base-details" class="status-details"></div>
+        <div id="source-details" class="source-list"></div>
+        <div id="photo-details" class="source-list"></div>
+        <p id="base-error" class="error-text" role="alert" hidden></p>
+      </details>
     </section>
 
     <section class="grid two-columns">
       <article class="card">
-        <p class="eyebrow">Entrada de dados</p>
-        <h2>Importar cadastro patrimonial</h2>
-        <p>Selecione o CSV SH3. A validação ocorre antes de substituir qualquer arquivo já importado.</p>
-        <form id="csv-form" class="upload-form">
-          <label for="csv-file">Cadastro patrimonial (CSV)</label>
-          <input id="csv-file" name="arquivo" type="file" accept=".csv,text/csv" required>
-          <button class="button button-primary" type="submit">Validar e importar CSV</button>
-        </form>
-        <div id="csv-import-followup" class="csv-import-followup" role="status" hidden>
-          <p>CSV importado. Para atualizar os itens, pendências e a data da preparação, prepare os dados agora.</p>
-          <button id="prepare-after-csv" class="button button-primary" type="button">Preparar Dados (SH3) agora</button>
-        </div>
+        <details class="work-disclosure">
+          <summary>
+            <span>
+              <span class="eyebrow">Entrada de dados</span>
+              <span class="work-title">Importar cadastro patrimonial</span>
+            </span>
+          </summary>
+          <p>Selecione o CSV SH3. A validação ocorre antes de substituir qualquer arquivo já importado.</p>
+          <form id="csv-form" class="upload-form">
+            <label for="csv-file">Cadastro patrimonial (CSV)</label>
+            <input id="csv-file" name="arquivo" type="file" accept=".csv,text/csv" required>
+            <button class="button button-primary" type="submit">Validar e importar CSV</button>
+          </form>
+          <div id="csv-import-followup" class="csv-import-followup" role="status" hidden>
+            <p>CSV importado. Para atualizar os itens, pendências e a data da preparação, prepare os dados agora.</p>
+            <button id="prepare-after-csv" class="button button-primary" type="button">Preparar Dados (SH3) agora</button>
+          </div>
+        </details>
       </article>
       <article class="card">
-        <p class="eyebrow">Fontes auxiliares opcionais</p>
-        <h2>Preparação SH3</h2>
-        <p>Importe somente as fontes que utiliza. A preparação informa quando alguma delas não foi fornecida.</p>
-        <form id="alienados-form" class="upload-form compact-form">
-          <label for="alienados-file">Bens alienados (Excel)</label>
-          <input id="alienados-file" name="arquivo" type="file" accept=".xlsx" required>
-          <button class="button button-secondary" type="submit">Importar planilha Excel</button>
-        </form>
-        <form id="baixados-form" class="upload-form compact-form">
-          <label for="baixados-file">Bens baixados (Excel)</label>
-          <input id="baixados-file" name="arquivo" type="file" accept=".xlsx" required>
-          <p class="muted">A planilha deve ter uma coluna Plaqueta. Ao preparar os dados, os bens do cadastro listados aqui serão marcados automaticamente como BAIXA.</p>
-          <button class="button button-secondary" type="submit">Importar planilha Excel</button>
-        </form>
-        <button id="prepare-button" class="button button-primary full-width" type="button">Preparar Dados (SH3)</button>
+        <details class="work-disclosure">
+          <summary>
+            <span>
+              <span class="eyebrow">Fontes auxiliares opcionais</span>
+              <span class="work-title">Preparação SH3</span>
+            </span>
+          </summary>
+          <p>Importe somente as fontes que utiliza. A preparação informa quando alguma delas não foi fornecida.</p>
+          <form id="alienados-form" class="upload-form compact-form">
+            <label for="alienados-file">Bens alienados (Excel)</label>
+            <input id="alienados-file" name="arquivo" type="file" accept=".xlsx" required>
+            <button class="button button-secondary" type="submit">Importar planilha Excel</button>
+          </form>
+          <form id="baixados-form" class="upload-form compact-form">
+            <label for="baixados-file">Bens baixados (Excel)</label>
+            <input id="baixados-file" name="arquivo" type="file" accept=".xlsx" required>
+            <p class="muted">A planilha deve ter uma coluna Plaqueta. Ao preparar os dados, os bens do cadastro listados aqui serão marcados automaticamente como BAIXA.</p>
+            <button class="button button-secondary" type="submit">Importar planilha Excel</button>
+          </form>
+          <button id="prepare-button" class="button button-primary full-width" type="button">Preparar Dados (SH3)</button>
+        </details>
       </article>
     </section>
 
     <section class="grid">
       <article class="card auction-card">
-        <details id="auction-disclosure" class="auction-disclosure">
+        <details id="auction-disclosure" class="work-disclosure auction-disclosure">
           <summary>
             <span>
               <span class="eyebrow">Controle separado do patrimônio</span>
@@ -81,9 +95,9 @@
             </span>
             <span id="auction-summary" class="auction-summary">Carregando itens…</span>
           </summary>
-          <p>Crie lotes e escolha um deles ao importar ou incluir itens; se preferir, deixe itens disponíveis para organizar depois. A numeração acompanha a ordem dos lotes. Remover do lote mantém o item disponível; excluir do sistema remove somente da lista de leilão, sem alterar o cadastro patrimonial.</p>
+          <p>Crie lotes e escolha um deles ao importar ou incluir itens; se preferir, deixe itens disponíveis para organizar depois. A numeração é automática e acompanha a ordem dos lotes; informe apenas o nome, sem o número. Use as ações no cabeçalho de cada lote para renomear, reordenar ou excluir. Para excluir um lote com itens, mova ou remova os itens primeiro. Na importação, o sistema analisa as plaquetas e sugere setores; revise e aprove as sugestões antes de importar. Itens sem plaqueta ou sem correspondência ficam como estão. Para excluir vários itens da lista de leilão, marque as caixas “Selecionar” e use “Excluir selecionados”; o sistema pedirá confirmação. Remover do lote mantém o item disponível; “Excluir da lista” remove somente o item da lista de leilão, sem alterar o cadastro patrimonial.</p>
           <form id="auction-lot-form" class="inline-form auction-lot-form">
-            <label for="auction-lot-name">Nome do novo lote</label>
+            <label for="auction-lot-name">Nome do novo lote (numeração automática)</label>
             <input id="auction-lot-name" maxlength="80" required>
             <button class="button button-secondary" type="submit">Criar lote</button>
           </form>
@@ -93,14 +107,16 @@
               <input id="auction-xlsx-file" type="file" accept=".xlsx" required>
               <label for="auction-xlsx-lot">Adicionar importados ao lote (opcional)</label>
               <select id="auction-xlsx-lot" class="auction-target-lot"><option value="">Disponíveis, sem lote</option></select>
-              <button class="button button-secondary" type="submit">Importar Excel</button>
+              <button class="button button-secondary" type="submit">Analisar Excel</button>
+              <div class="auction-import-preview" hidden aria-live="polite"></div>
             </form>
             <form id="auction-csv-form" class="upload-form compact-form">
               <label for="auction-csv-file">Lista de leilão (CSV)</label>
               <input id="auction-csv-file" type="file" accept=".csv,text/csv" required>
               <label for="auction-csv-lot">Adicionar importados ao lote (opcional)</label>
               <select id="auction-csv-lot" class="auction-target-lot"><option value="">Disponíveis, sem lote</option></select>
-              <button class="button button-secondary" type="submit">Importar CSV</button>
+              <button class="button button-secondary" type="submit">Analisar CSV</button>
+              <div class="auction-import-preview" hidden aria-live="polite"></div>
             </form>
           </div>
           <form id="auction-manual-form" class="filter-grid auction-manual-form">
@@ -123,6 +139,10 @@
               <input id="auction-date" type="date">
             </div>
             <div>
+              <label for="auction-value">Valor por item em R$ (opcional)</label>
+              <input id="auction-value" type="number" min="0" step="0.01" inputmode="decimal">
+            </div>
+            <div>
               <label for="auction-quantity">Quantidade de itens (1 a 999)</label>
               <input id="auction-quantity" type="number" min="1" max="999" step="1" value="1" required>
             </div>
@@ -136,38 +156,66 @@
             </div>
             <button class="button button-primary" type="submit">Adicionar item à lista</button>
           </form>
+          <div class="auction-list-toolbar">
+            <div>
+              <label for="auction-list-search">Buscar por descrição ou plaqueta</label>
+              <input id="auction-list-search" type="search" placeholder="Digite para buscar">
+            </div>
+            <div>
+              <label for="auction-list-lot">Filtrar por lote</label>
+              <select id="auction-list-lot">
+                <option value="">Todos os lotes</option>
+                <option value="__sem_lote__">Disponíveis, sem lote</option>
+              </select>
+            </div>
+            <button id="auction-export-xlsx" class="button button-secondary" type="button" disabled>Exportar Excel</button>
+          </div>
+          <p id="auction-list-summary" class="muted"></p>
           <div id="auction-list" class="auction-list"></div>
+          <div id="auction-pagination" class="table-pagination"></div>
         </details>
       </article>
     </section>
 
     <section class="grid sector-section">
       <article class="card conference-card">
-        <p class="eyebrow">Conferência</p>
-        <h2>Conferência por setor</h2>
-        <p>Selecione um setor para revisar os bens, registrar status, estado e observações.</p>
-        <form id="sector-form" class="inline-form">
-          <label class="visually-hidden" for="sector-select">Setor</label>
-          <select id="sector-select">
-            <option value="">Selecione um setor</option>
-          </select>
-          <button id="start-sector" class="button button-primary" type="submit">Iniciar</button>
-        </form>
-        <div id="conference-summary" class="muted"></div>
-        <div class="search-actions">
-          <button id="delete-selected-conference-items" class="button button-muted" type="button" disabled>Excluir selecionados</button>
-        </div>
-        <div id="conference-table" class="table-wrap conference-table"></div>
-        <div id="conference-pagination" class="table-pagination"></div>
-        <button id="add-item-button" class="button button-secondary" type="button" hidden>Incluir bem localizado sem plaqueta</button>
+        <details class="work-disclosure">
+          <summary>
+            <span>
+              <span class="eyebrow">Conferência</span>
+              <span class="work-title">Conferência por setor</span>
+            </span>
+          </summary>
+          <p>Selecione um setor para revisar os bens, registrar status, estado e observações.</p>
+          <form id="sector-form" class="inline-form">
+            <label class="visually-hidden" for="sector-select">Setor</label>
+            <select id="sector-select">
+              <option value="">Selecione um setor</option>
+            </select>
+            <button id="start-sector" class="button button-primary" type="submit">Iniciar</button>
+          </form>
+          <div id="conference-summary" class="muted"></div>
+          <p class="data-deletion-warning" role="note">Atenção: excluir da planilha principal remove registros da base patrimonial e pode causar danos graves ou perda de dados no sistema. Use apenas se tiver certeza.</p>
+          <div class="search-actions">
+            <button id="delete-selected-conference-items" class="button button-muted" type="button" disabled>Excluir da planilha principal</button>
+          </div>
+          <div id="conference-table" class="table-wrap conference-table"></div>
+          <div id="conference-pagination" class="table-pagination"></div>
+          <button id="add-item-button" class="button button-secondary" type="button" hidden>Incluir bem localizado sem plaqueta</button>
+        </details>
       </article>
     </section>
 
     <section class="grid">
       <article class="card">
-        <p class="eyebrow">Consulta</p>
-        <h2>Busca geral de bens</h2>
-        <form id="search-form">
+        <details class="work-disclosure">
+          <summary>
+            <span>
+              <span class="eyebrow">Consulta</span>
+              <span class="work-title">Busca geral de bens</span>
+            </span>
+          </summary>
+          <form id="search-form">
           <div class="inline-form">
             <div class="search-term-control">
               <label for="search-term">Texto para buscar</label>
@@ -236,33 +284,47 @@
               <div id="date-to-active" class="filter-active-values"></div>
             </div>
           </div>
-        </form>
-        <div id="search-summary" class="muted"></div>
-        <div class="search-actions">
-          <button id="delete-selected-search-items" class="button button-muted" type="button" disabled>Excluir selecionados</button>
-          <button id="search-excel-button" class="button button-secondary" type="button" disabled>Gerar relatório Excel</button>
-          <button id="search-pdf-button" class="button button-secondary" type="button" disabled>Gerar relatório PDF</button>
-          <div id="search-report-result" class="result-message"></div>
-        </div>
-        <div id="search-table" class="table-wrap"></div>
-        <div id="search-pagination" class="table-pagination"></div>
+          </form>
+          <div id="search-summary" class="muted"></div>
+          <p class="data-deletion-warning" role="note">Atenção: excluir da planilha principal remove registros da base patrimonial e pode causar danos graves ou perda de dados no sistema. Use apenas se tiver certeza.</p>
+          <div class="search-actions">
+            <button id="delete-selected-search-items" class="button button-muted" type="button" disabled>Excluir da planilha principal</button>
+            <button id="search-excel-button" class="button button-secondary" type="button" disabled>Gerar relatório Excel</button>
+            <button id="search-pdf-button" class="button button-secondary" type="button" disabled>Gerar relatório PDF</button>
+            <div id="search-report-result" class="result-message"></div>
+          </div>
+          <div id="search-table" class="table-wrap"></div>
+          <div id="search-pagination" class="table-pagination"></div>
+        </details>
       </article>
     </section>
 
     <section class="grid two-columns">
       <article class="card">
-        <p class="eyebrow">Relatórios</p>
-        <h2>Relatório de pendências</h2>
-        <p>Gera o arquivo Excel gerencial com resumos por setor, classificação e abas de pendências.</p>
-        <button id="report-button" class="button button-warning" type="button">Gerar relatório</button>
-        <div id="report-result" class="result-message"></div>
+        <details class="work-disclosure">
+          <summary>
+            <span>
+              <span class="eyebrow">Relatórios</span>
+              <span class="work-title">Relatório de pendências</span>
+            </span>
+          </summary>
+          <p>Gera o arquivo Excel gerencial com resumos por setor, classificação e abas de pendências.</p>
+          <button id="report-button" class="button button-warning" type="button">Gerar relatório</button>
+          <div id="report-result" class="result-message"></div>
+        </details>
       </article>
       <article class="card">
-        <p class="eyebrow">Proteção dos dados</p>
-        <h2>Backup e restauração</h2>
-        <p>Os backups incluem as entradas, planilhas de trabalho e relatórios desta versão web.</p>
-        <button id="backup-button" class="button button-secondary" type="button">Criar backup agora</button>
-        <div id="backup-list" class="backup-list"></div>
+        <details class="work-disclosure">
+          <summary>
+            <span>
+              <span class="eyebrow">Proteção dos dados</span>
+              <span class="work-title">Backup e restauração</span>
+            </span>
+          </summary>
+          <p>Os backups incluem as entradas, planilhas de trabalho e relatórios desta versão web.</p>
+          <button id="backup-button" class="button button-secondary" type="button">Criar backup agora</button>
+          <div id="backup-list" class="backup-list"></div>
+        </details>
       </article>
     </section>
     <div id="notifications" class="notifications" role="status" aria-live="polite"></div>
@@ -280,6 +342,8 @@
         <label for="edit-description">Descrição</label>
         <input id="edit-description" maxlength="500">
       </div>
+      <label for="edit-value">Valor por item em R$ (opcional)</label>
+      <input id="edit-value" type="number" min="0" step="0.01" inputmode="decimal">
       <div class="filter-grid">
         <div>
           <label for="edit-status">Status</label>
@@ -302,7 +366,7 @@
       <div id="photo-current" class="photo-current"></div>
       <label for="edit-photo">Anexar ou trocar foto</label>
       <input id="edit-photo" type="file" accept=".jpg,.jpeg,.png,.bmp,.gif,.webp,image/*">
-      <p class="muted">Ao salvar a foto, as alterações de status, estado e observação também serão gravadas.</p>
+      <p class="muted">Ao salvar a foto, as alterações de status, estado, observação e valor também serão gravadas.</p>
       <div class="modal-actions">
         <button class="button button-primary" type="submit">Salvar conferência</button>
         <button id="save-photo" class="button button-secondary" type="button">Salvar foto e alterações</button>
@@ -366,6 +430,8 @@
       </select>
       <label for="auction-edit-date">Data</label>
       <input id="auction-edit-date" maxlength="50">
+      <label for="auction-edit-value">Valor por item em R$ (opcional)</label>
+      <input id="auction-edit-value" type="number" min="0" step="0.01" inputmode="decimal">
       <label for="auction-edit-observation">Observação</label>
       <textarea id="auction-edit-observation" rows="3" maxlength="2000"></textarea>
       <div class="modal-actions">
@@ -375,6 +441,6 @@
     </form>
   </dialog>
 
-  <script src="{{ url_for('static', filename='app.js') }}?v=24" defer></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v=32" defer></script>
 </body>
 </html>
