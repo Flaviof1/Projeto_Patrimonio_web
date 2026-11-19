@@ -13,8 +13,6 @@ que consiga acessar o endereço pode consultar e alterar dados, importar
 arquivos e criar ou restaurar backups. Restrinja o acesso a pessoas confiáveis;
 não exponha a porta na internet.
 
-O [Manual do Sistema (HTML)](MANUAL_USUARIO.html) também descreve a operação
-para quem realiza a conferência.
 
 ## Prévia da interface
 
