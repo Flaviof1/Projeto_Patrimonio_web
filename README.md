@@ -48,7 +48,7 @@ py -m venv .venv
 Por padrão, o aplicativo usa arquivos Excel como armazenamento. Para usar o
 MySQL, configure o modo conforme a seção [Armazenamento](#armazenamento).
 
-No computador servidor, abra <http://127.0.0.1:8765>. O terminal informa os
+No computador servidor, abra localhost. O terminal informa os
 endereços disponíveis na rede local; use um deles em outro dispositivo
 conectado à mesma rede. Se o Firewall do Windows solicitar autorização, permita
 somente em redes privadas. Para encerrar, volte ao terminal e pressione
