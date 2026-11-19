@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 dados_web/
 *.py[cod]
+MANUAL_USUARIO.html
 
 # Configuração local e credenciais
 .env
