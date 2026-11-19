@@ -1325,6 +1325,74 @@ def test_lotes_leilao_organizam_itens_sem_alterar_cadastro_patrimonial(client):
     assert estado['lotes'][0]['nome'] == 'Eletrônicos'
 
 
+def test_lotes_leilao_podem_ter_valor_total(client):
+    criado = post(
+        client,
+        '/api/leilao/lotes',
+        json={'nome': 'Móveis', 'valor': '1.234,56'},
+    )
+    assert criado.status_code == 200
+    lote = criado.get_json()['lote']
+    assert lote['valor'] == '1234.56'
+
+    estado = client.get('/api/leilao').get_json()
+    assert estado['lotes'][0]['valor'] == '1234.56'
+
+    editado = post(
+        client,
+        f'/api/leilao/lotes/{lote["id"]}/editar',
+        json={'nome': 'Móveis comerciais', 'valor': '2500'},
+    )
+    assert editado.status_code == 200
+    assert editado.get_json()['lote']['valor'] == '2500.00'
+
+    invalido = post(
+        client,
+        f'/api/leilao/lotes/{lote["id"]}/editar',
+        json={'nome': 'Móveis comerciais', 'valor': '-10'},
+    )
+    assert invalido.status_code == 400
+    assert 'zero ou maior' in invalido.get_json()['error'].lower()
+
+
+def test_mover_item_atualiza_valores_manuais_dos_lotes(client):
+    origem = post(
+        client,
+        '/api/leilao/lotes',
+        json={'nome': 'Origem', 'valor': '1000'},
+    ).get_json()['lote']
+    destino = post(
+        client,
+        '/api/leilao/lotes',
+        json={'nome': 'Destino', 'valor': '500'},
+    ).get_json()['lote']
+    incluido = post(
+        client,
+        '/api/leilao/manual',
+        json={
+            'descricao': 'Mesa',
+            'valor': '250',
+            'quantidade': 1,
+            'lote_id': origem['id'],
+        },
+    )
+    assert incluido.status_code == 200
+    item_id = incluido.get_json()['item']['id']
+    estado = client.get('/api/leilao').get_json()
+    assert next(lote for lote in estado['lotes'] if lote['id'] == origem['id'])['valor'] == '1250.00'
+    assert next(lote for lote in estado['lotes'] if lote['id'] == destino['id'])['valor'] == '500.00'
+
+    movido = post(
+        client,
+        f'/api/leilao/{item_id}/lote',
+        json={'lote_id': destino['id']},
+    )
+    assert movido.status_code == 200
+    estado = client.get('/api/leilao').get_json()
+    assert next(lote for lote in estado['lotes'] if lote['id'] == origem['id'])['valor'] == '1000.00'
+    assert next(lote for lote in estado['lotes'] if lote['id'] == destino['id'])['valor'] == '750.00'
+
+
 def test_lotes_leilao_rejeitam_nomes_repetidos_ao_criar_e_renomear(client):
     primeiro = post(client, '/api/leilao/lotes', json={'nome': 'Móveis'})
     assert primeiro.status_code == 200

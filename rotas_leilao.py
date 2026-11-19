@@ -2,6 +2,7 @@ from flask import Blueprint
 
 import json
 import pandas as pd
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from flask import (
     abort,
     jsonify,
@@ -46,6 +47,27 @@ from utils import (
 
 blueprint = Blueprint('leilao', __name__)
 
+
+def _ajustar_valor_manual_lote(lotes, lote_id, delta):
+    if not lote_id:
+        return
+    lote = next(
+        (registro for registro in lotes if registro.get('id') == lote_id),
+        None,
+    )
+    if lote is None or not lote.get('valor'):
+        return
+    try:
+        atual = Decimal(str(lote['valor']))
+        alteracao = Decimal(str(delta))
+    except (InvalidOperation, ValueError):
+        return
+    novo = (atual + alteracao).quantize(
+        Decimal('0.01'),
+        rounding=ROUND_HALF_UP,
+    )
+    lote['valor'] = f'{max(novo, Decimal("0")):.2f}'
+
 @blueprint.get('/api/leilao')
 def listar_itens_leilao():
     try:
@@ -55,7 +77,7 @@ def listar_itens_leilao():
     return jsonify(
         total=len(estado['itens']),
         itens=estado['itens'],
-        lotes=_lotes_com_numeracao(estado['lotes']),
+        lotes=_lotes_com_numeracao(estado['lotes'], estado['itens']),
     )
 
 @blueprint.get('/api/leilao/exportar')
@@ -67,7 +89,7 @@ def exportar_itens_leilao():
 
     termo = _normalizar_nome_lote(request.args.get('q', ''))
     lote_id = request.args.get('lote_id', '')
-    lotes = _lotes_com_numeracao(estado['lotes'])
+    lotes = _lotes_com_numeracao(estado['lotes'], estado['itens'])
     lotes_por_id = {lote['id']: lote for lote in lotes}
     if lote_id not in ('', '__sem_lote__') and lote_id not in lotes_por_id:
         abort(400, description='O filtro selecionado não corresponde a um lote existente.')
@@ -109,6 +131,11 @@ def exportar_itens_leilao():
         )
         linhas.append({
             'Lote': nome_lote,
+            'Valor do lote (R$)': (
+                lote.get('valor') or None
+                if lote
+                else None
+            ),
             'Plaqueta informada': item.get('plaqueta_informada', ''),
             'Plaqueta vinculada': item.get('plaqueta_vinculada', ''),
             'Descrição': item.get('descricao', ''),
@@ -125,6 +152,7 @@ def exportar_itens_leilao():
 
     dados = pd.DataFrame(linhas, columns=[
         'Lote',
+        'Valor do lote (R$)',
         'Plaqueta informada',
         'Plaqueta vinculada',
         'Descrição',
@@ -134,10 +162,13 @@ def exportar_itens_leilao():
         'Observação',
         'Situação',
     ])
-    for coluna in dados.columns.drop('Valor (R$)'):
+    for coluna in dados.columns.drop(['Valor (R$)', 'Valor do lote (R$)']):
         dados[coluna] = dados[coluna].map(texto_planilha)
     try:
         dados['Valor (R$)'] = pd.to_numeric(dados['Valor (R$)'], errors='raise')
+        dados['Valor do lote (R$)'] = pd.to_numeric(
+            dados['Valor do lote (R$)'], errors='raise'
+        )
     except (TypeError, ValueError) as error:
         abort(409, description=f'Não foi possível exportar um valor de item inválido: {error}')
 
@@ -160,6 +191,12 @@ def criar_lote_leilao():
     if not nome or len(nome) > 80:
         abort(400, description='Informe um nome de lote de até 80 caracteres.')
     try:
+        valor = _normalizar_valor_leilao(
+            dados.get('valor', '') if isinstance(dados, dict) else ''
+        )
+    except ValueError as error:
+        abort(400, description=str(error))
+    try:
         estado = _carregar_estado_leilao()
     except ValueError as error:
         abort(409, description=str(error))
@@ -170,7 +207,7 @@ def criar_lote_leilao():
     ):
         abort(409, description='Já existe um lote com esse nome.')
     try:
-        lote = {'id': token_hex(12), 'nome': nome}
+        lote = {'id': token_hex(12), 'nome': nome, 'valor': valor}
         estado['lotes'].append(lote)
         _salvar_estado_leilao(estado)
     except OSError as error:
@@ -219,6 +256,14 @@ def editar_lote_leilao(identificador):
     )
     if lote is None:
         abort(404, description='Lote não encontrado.')
+    try:
+        valor = (
+            _normalizar_valor_leilao(dados.get('valor'))
+            if isinstance(dados, dict) and 'valor' in dados
+            else lote.get('valor', '')
+        )
+    except ValueError as error:
+        abort(400, description=str(error))
     nome_normalizado = _normalizar_nome_lote(nome)
     if any(
         registro.get('id') != identificador
@@ -227,6 +272,7 @@ def editar_lote_leilao(identificador):
     ):
         abort(409, description='Já existe um lote com esse nome.')
     lote['nome'] = nome
+    lote['valor'] = valor
     try:
         _salvar_estado_leilao(estado)
     except OSError as error:
@@ -419,6 +465,12 @@ def incluir_item_leilao_manual():
     )
     novos = [{**item, 'id': token_hex(12)} for _ in range(quantidade)]
     estado['itens'].extend(novos)
+    if item['lote_id'] and item['valor']:
+        try:
+            delta = Decimal(str(item['valor'])) * quantidade
+        except (InvalidOperation, ValueError):
+            delta = Decimal('0')
+        _ajustar_valor_manual_lote(estado['lotes'], item['lote_id'], delta)
     try:
         _salvar_estado_leilao(estado)
     except OSError as error:
@@ -459,6 +511,7 @@ def editar_item_leilao(identificador):
     item = next((registro for registro in itens if registro.get('id') == identificador), None)
     if item is None:
         abort(404, description='Item da lista de leilão não encontrado.')
+    valor_anterior = item.get('valor', '')
     valor = item.get('valor', '')
     if 'valor' in alteracoes:
         try:
@@ -484,6 +537,21 @@ def editar_item_leilao(identificador):
         _salvar_itens_leilao(itens)
     except OSError as error:
         abort(500, description=f'Não foi possível salvar as alterações: {error}')
+    try:
+        estado = _carregar_estado_leilao()
+        try:
+            anterior = Decimal(str(valor_anterior)) if valor_anterior else Decimal('0')
+            novo = Decimal(str(valor)) if valor else Decimal('0')
+        except (InvalidOperation, ValueError):
+            anterior = novo = Decimal('0')
+        _ajustar_valor_manual_lote(
+            estado['lotes'],
+            item.get('lote_id'),
+            novo - anterior,
+        )
+        _salvar_estado_leilao(estado)
+    except (OSError, ValueError) as error:
+        abort(500, description=f'Não foi possível atualizar o valor do lote: {error}')
     return jsonify(mensagem='Item da lista de leilão atualizado.', item=item)
 
 @blueprint.post('/api/leilao/<identificador>/excluir')
@@ -496,11 +564,27 @@ def excluir_item_leilao(identificador):
     item = next((registro for registro in itens if registro.get('id') == identificador), None)
     if item is None:
         abort(404, description='Item da lista de leilão não encontrado.')
+    try:
+        estado = _carregar_estado_leilao()
+        if item.get('valor'):
+            _ajustar_valor_manual_lote(
+                estado['lotes'],
+                item.get('lote_id'),
+                -Decimal(str(item['valor'])),
+            )
+    except (InvalidOperation, ValueError):
+        estado = None
     itens.remove(item)
     try:
         _salvar_itens_leilao(itens)
     except OSError as error:
         abort(500, description=f'Não foi possível excluir o item: {error}')
+    if estado is not None:
+        try:
+            estado['itens'] = itens
+            _salvar_estado_leilao(estado)
+        except OSError as error:
+            abort(500, description=f'Não foi possível atualizar o valor do lote: {error}')
     return jsonify(mensagem='Item removido da lista de leilão.')
 
 @blueprint.post('/api/leilao/excluir-selecionados')
@@ -522,6 +606,20 @@ def excluir_itens_leilao_selecionados():
     if any(identificador not in ids_existentes for identificador in ids):
         abort(404, description='Um ou mais itens selecionados não foram encontrados.')
     ids_selecionados = set(ids)
+    itens_selecionados = [
+        item for item in estado['itens']
+        if item.get('id') in ids_selecionados
+    ]
+    for item in itens_selecionados:
+        if item.get('valor'):
+            try:
+                _ajustar_valor_manual_lote(
+                    estado['lotes'],
+                    item.get('lote_id'),
+                    -Decimal(str(item['valor'])),
+                )
+            except (InvalidOperation, ValueError):
+                pass
     estado['itens'] = [
         item for item in estado['itens']
         if item.get('id') not in ids_selecionados
@@ -552,7 +650,24 @@ def mover_item_leilao(identificador):
     )
     if item is None:
         abort(404, description='Item da lista de leilão não encontrado.')
-    item['lote_id'] = _lote_leilao_valido(estado['lotes'], dados.get('lote_id'))
+    lote_origem_id = item.get('lote_id')
+    lote_destino_id = _lote_leilao_valido(estado['lotes'], dados.get('lote_id'))
+    if lote_origem_id != lote_destino_id and item.get('valor'):
+        try:
+            valor_item = Decimal(str(item['valor']))
+        except (InvalidOperation, ValueError):
+            valor_item = Decimal('0')
+        _ajustar_valor_manual_lote(
+            estado['lotes'],
+            lote_origem_id,
+            -valor_item,
+        )
+        _ajustar_valor_manual_lote(
+            estado['lotes'],
+            lote_destino_id,
+            valor_item,
+        )
+    item['lote_id'] = lote_destino_id
     try:
         _salvar_estado_leilao(estado)
     except OSError as error:

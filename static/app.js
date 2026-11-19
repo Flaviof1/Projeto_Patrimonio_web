@@ -1143,10 +1143,16 @@ function renderAuctionList(items, lots) {
     heading.className = 'auction-lot-heading';
     const title = document.createElement('h3');
     title.textContent = `Lote ${lot.numero} · ${lot.nome}`;
+    const lotValue = document.createElement('span');
+    lotValue.className = 'muted';
+    lotValue.textContent = lot.valor
+      ? `Valor do lote: ${formatAuctionValue(lot.valor)} (ajuste manual)`
+      : `Valor calculado do lote: ${formatAuctionValue(lot.valor_calculado)}`;
+    title.append(document.createElement('br'), lotValue);
     const controls = document.createElement('div');
     controls.className = 'auction-row-actions';
     controls.append(
-      createAuctionButton('Renomear', () => renameAuctionLot(lot)),
+      createAuctionButton('Editar', () => renameAuctionLot(lot)),
       createAuctionButton('↑', () => reorderAuctionLot(lots, index, -1), 'button button-muted auction-order-button'),
       createAuctionButton('↓', () => reorderAuctionLot(lots, index, 1), 'button button-muted auction-order-button'),
     );
@@ -1449,12 +1455,22 @@ async function deleteSelectedAuctionItems() {
 }
 
 async function renameAuctionLot(lot) {
-  const nome = window.prompt('Nome do lote:', lot.nome);
-  if (nome === null || nome.trim() === lot.nome) return;
+  const nomeResposta = window.prompt('Nome do lote:', lot.nome);
+  if (nomeResposta === null) return;
+  const valorResposta = window.prompt(
+    'Valor total do lote em R$:',
+    lot.valor || '',
+  );
+  if (valorResposta === null) return;
+  const nome = nomeResposta.trim();
+  if (!nome) {
+    notify('Informe um nome para o lote.', 'error');
+    return;
+  }
   try {
     const result = await api(`/api/leilao/lotes/${encodeURIComponent(lot.id)}/editar`, {
       method: 'POST',
-      body: { nome },
+      body: { nome, valor: valorResposta },
     });
     notify(result.mensagem);
     await loadAuctionList();
@@ -1687,7 +1703,10 @@ $('#auction-lot-form').addEventListener('submit', async event => {
   try {
     const result = await api('/api/leilao/lotes', {
       method: 'POST',
-      body: { nome: $('#auction-lot-name').value },
+      body: {
+        nome: $('#auction-lot-name').value,
+        valor: $('#auction-lot-value').value,
+      },
     });
     form.reset();
     notify(result.mensagem);

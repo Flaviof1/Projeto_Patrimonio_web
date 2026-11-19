@@ -99,6 +99,8 @@
           <form id="auction-lot-form" class="inline-form auction-lot-form">
             <label for="auction-lot-name">Nome do novo lote (numeração automática)</label>
             <input id="auction-lot-name" maxlength="80" required>
+            <label for="auction-lot-value">Valor do lote em R$ (opcional)</label>
+            <input id="auction-lot-value" type="number" min="0" step="0.01" inputmode="decimal">
             <button class="button button-secondary" type="submit">Criar lote</button>
           </form>
           <div class="auction-import-forms">

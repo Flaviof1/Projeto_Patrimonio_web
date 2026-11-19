@@ -6,6 +6,10 @@ import pandas as pd
 import re
 import unicodedata
 import zipfile
+from decimal import (
+    Decimal,
+    InvalidOperation,
+)
 from datetime import (
     date,
     datetime,
@@ -79,6 +83,8 @@ def _carregar_estado_leilao():
         or len(ids_lotes) != len(set(ids_lotes))
     ):
         raise ValueError('A lista de lotes para leilão está em formato inválido.')
+    for lote in lotes:
+        lote.setdefault('valor', '')
     for item in itens:
         item.setdefault('lote_id', None)
         item.setdefault('valor', '')
@@ -357,11 +363,26 @@ def _analisar_setores_importacao_leilao(itens, base):
         'descricoes_resolvidas': descricoes_resolvidas,
     }
 
-def _lotes_com_numeracao(lotes):
-    return [
-        {**lote, 'numero': indice}
-        for indice, lote in enumerate(lotes, start=1)
-    ]
+def _lotes_com_numeracao(lotes, itens=None):
+    itens = itens if itens is not None else []
+    resultado = []
+    for indice, lote in enumerate(lotes, start=1):
+        valor_calculado = Decimal('0')
+        for item in itens:
+            if item.get('lote_id') != lote.get('id') or not item.get('valor'):
+                continue
+            try:
+                valor_calculado += Decimal(str(item['valor']))
+            except (InvalidOperation, ValueError):
+                continue
+        valor_manual = str(lote.get('valor') or '').strip()
+        resultado.append({
+            **lote,
+            'numero': indice,
+            'valor_calculado': f'{valor_calculado.quantize(Decimal("0.01")):.2f}',
+            'valor': valor_manual,
+        })
+    return resultado
 
 def _plaqueta_normalizada(valor):
     if valor is None or pd.isna(valor):
