@@ -382,6 +382,29 @@ def test_preparacao_setores_conferencia_e_regras_de_estado(client):
     assert float(atualizado['Valor']) == pytest.approx(1250.50)
 
 
+def test_tabelas_gerais_exibem_valor_atual_e_valor_informado(client):
+    csv_com_valores = (
+        'Código;Plaqueta;Descrição;Modelo;Setor Atual;Data;Valor Atual\n'
+        '001;000123;Mesa;M1;Setor A;01/02/2024;1.234,56\n'
+        '002;000124;Cadeira;C2;Setor B;15/03/2023;250,00\n'
+    )
+    assert enviar_csv(client, csv_com_valores).status_code == 200
+    assert post(client, '/api/preparar', data={}).status_code == 200
+
+    item = client.get('/api/conferencia?setor=Setor%20A').get_json()['itens'][0]
+    assert item['Valor Atual'] == '1.234,56'
+    atualizado = post(
+        client,
+        f"/api/itens/{item['id']}/editar",
+        json={'status': 'PEND', 'estado': 'EM USO', 'valor': '75,25'},
+    )
+    assert atualizado.status_code == 200
+
+    busca = client.get('/api/busca?termo=Mesa').get_json()['itens'][0]
+    assert busca['Valor Atual'] == '1.234,56'
+    assert busca['Valor'] == pytest.approx(75.25)
+
+
 def test_edicao_patrimonial_rejeita_valor_invalido_sem_salvar(client):
     assert preparar_base(client).status_code == 200
     item = client.get('/api/conferencia?setor=Setor%20A').get_json()['itens'][0]

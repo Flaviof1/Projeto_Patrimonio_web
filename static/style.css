@@ -286,6 +286,20 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
 }
 .button:disabled { cursor: wait; opacity: .65; }
+.button.is-busy { gap: 8px; }
+.button.is-busy::before {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  content: "";
+  animation: button-spin .7s linear infinite;
+}
+@keyframes button-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .button.is-busy::before { animation: none; }
+}
 .button-primary { color: #fff; background: var(--primary); }
 .button-primary:hover { background: var(--primary-dark); }
 .button-secondary { color: #1248b8; border-color: #b2ccff; background: #eff6ff; }
@@ -299,13 +313,14 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .icon-button { border: 0; background: transparent; color: var(--muted); font-size: 1.6rem; cursor: pointer; }
 
 .table-wrap { width: 100%; margin-top: 12px; overflow: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.table-wrap table { min-width: 1850px; }
 .table-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; font-size: .85rem; color: var(--muted); }
 table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 th, td { max-width: 310px; padding: 9px 10px; border-bottom: 1px solid #e7ecf3; text-align: left; vertical-align: top; }
 th { position: sticky; top: 0; z-index: 1; color: #344054; background: #f8fafc; white-space: nowrap; }
 td { overflow-wrap: anywhere; }
 tr:hover td { background: #f8fbff; }
-.conference-table table { width: max(100%, 1580px); table-layout: fixed; }
+.conference-table table { width: max(100%, 1900px); table-layout: fixed; }
 .conference-table th, .conference-table td { max-width: none; }
 .conference-table th:nth-child(1), .conference-table td:nth-child(1) { width: 95px; }
 .conference-table th:nth-child(2), .conference-table td:nth-child(2) { width: 115px; }
@@ -313,15 +328,20 @@ tr:hover td { background: #f8fbff; }
 .conference-table th:nth-child(4), .conference-table td:nth-child(4) { width: 175px; }
 .conference-table th:nth-child(5), .conference-table td:nth-child(5) { width: 110px; }
 .conference-table th:nth-child(6), .conference-table td:nth-child(6) { width: 145px; }
-.conference-table th:nth-child(7), .conference-table td:nth-child(7) { width: 250px; }
-.conference-table th:nth-child(8), .conference-table td:nth-child(8) { width: 120px; }
-.conference-table th:nth-child(9), .conference-table td:nth-child(9) { width: 120px; }
-.conference-table th:nth-child(10), .conference-table td:nth-child(10) { width: 160px; }
-.conference-table th:nth-child(11), .conference-table td:nth-child(11) { width: 165px; }
-.conference-table th:nth-child(12), .conference-table td:nth-child(12) { width: 110px; }
-.conference-table th:nth-child(13), .conference-table td:nth-child(13) { width: 100px; }
+.conference-table th:nth-child(7), .conference-table td:nth-child(7),
+.conference-table th:nth-child(8), .conference-table td:nth-child(8) { width: 145px; }
+.conference-table th:nth-child(9), .conference-table td:nth-child(9) { width: 250px; }
+.conference-table th:nth-child(10), .conference-table td:nth-child(10) { width: 120px; }
+.conference-table th:nth-child(11), .conference-table td:nth-child(11) { width: 120px; }
+.conference-table th:nth-child(12), .conference-table td:nth-child(12) { width: 160px; }
+.conference-table th:nth-child(13), .conference-table td:nth-child(13) { width: 165px; }
+.conference-table th:nth-child(14), .conference-table td:nth-child(14) { width: 110px; }
+.conference-table th:nth-child(15), .conference-table td:nth-child(15) { width: 100px; }
+.conference-table th:nth-child(16), .conference-table td:nth-child(16) { width: 85px; }
 td[data-field="Data"],
 td[data-field="ALTERADO_EM"] { white-space: nowrap; font-variant-numeric: tabular-nums; }
+td[data-field="Valor Atual"],
+td[data-field="Valor"] { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .table-highlight { display: inline-flex; align-items: center; min-height: 26px; padding: 4px 9px; border: 1px solid transparent; border-radius: 999px; font-size: .75rem; font-weight: 800; line-height: 1.2; white-space: nowrap; }
 .table-status, .state-em-uso { color: #05603a; border-color: #abefc6; background: #dcfae6; }
 .status-pend, .state-desuso { color: #93370d; border-color: #fedf89; background: #fffaeb; }

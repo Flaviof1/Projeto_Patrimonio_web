@@ -59,6 +59,8 @@ function setBusy(button, busy, busyText = 'Aguarde…') {
   if (!button.dataset.label) button.dataset.label = button.textContent;
   button.disabled = busy;
   button.textContent = busy ? busyText : button.dataset.label;
+  button.classList.toggle('is-busy', busy);
+  button.setAttribute('aria-busy', String(busy));
 }
 
 function setSelectOptions(select, values, placeholder = null) {
@@ -226,6 +228,8 @@ function makeTable(container, items) {
     ['Setor Atual', 'Setor'],
     ['STATUS', 'Status'],
     ['ESTADO', 'Estado'],
+    ['Valor Atual', 'Valor atual (R$)'],
+    ['Valor', 'Valor informado (R$)'],
     ['OBSERVACAO', 'Observação'],
     ['Data', 'Data'],
     ['Duplicidade Plaqueta', 'Duplicidade'],
@@ -289,6 +293,8 @@ function makeTable(container, items) {
         observation.className = `table-observation${text ? '' : ' is-empty'}`;
         observation.textContent = text || 'Sem observação';
         cell.append(observation);
+      } else if (key === 'Valor Atual' || key === 'Valor') {
+        cell.textContent = formatTableCurrency(value);
       } else {
         cell.textContent = key === 'Data' || key === 'ALTERADO_EM'
           ? formatTableDate(value, key === 'ALTERADO_EM')
@@ -382,6 +388,28 @@ function formatTableDate(value, includeTime = false) {
   return text;
 }
 
+function formatTableCurrency(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return '—';
+
+  let normalized = text.replace(/R\$\s*/gi, '').replace(/\s/g, '');
+  if (normalized.includes(',') && normalized.includes('.')) {
+    normalized = normalized.lastIndexOf(',') > normalized.lastIndexOf('.')
+      ? normalized.replace(/\./g, '').replace(',', '.')
+      : normalized.replace(/,/g, '');
+  } else if (normalized.includes(',')) {
+    normalized = normalized.replace(',', '.');
+  } else if (/^\-?\d{1,3}(?:\.\d{3})+$/.test(normalized)) {
+    normalized = normalized.replace(/\./g, '');
+  }
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) return text;
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(amount);
+}
+
 async function refreshCurrentView() {
   if (currentView.type === 'sector') {
     await startConference(currentView.page || 1);
@@ -397,6 +425,8 @@ async function startConference(page = 1) {
     notify('Selecione um setor para iniciar a conferência.', 'error');
     return;
   }
+  const button = $('#start-sector');
+  setBusy(button, true, 'Carregando…');
   try {
     const query = new URLSearchParams({
       setor,
@@ -420,11 +450,15 @@ async function startConference(page = 1) {
     $('#add-item-button').hidden = false;
   } catch (error) {
     notify(error.message, 'error');
+  } finally {
+    setBusy(button, false);
   }
 }
 
 async function runSearch(event, page = 1) {
   if (event) event.preventDefault();
+  const button = $('#search-form').querySelector('button[type="submit"]');
+  setBusy(button, true, 'Buscando…');
   const filters = collectSearchFilters();
   const query = new URLSearchParams();
   if (filters.termo) query.set('termo', filters.termo);
@@ -458,6 +492,8 @@ async function runSearch(event, page = 1) {
     updateBulkDeleteButton();
   } catch (error) {
     notify(error.message, 'error');
+  } finally {
+    setBusy(button, false);
   }
 }
 
@@ -1864,15 +1900,15 @@ $('#backup-button').addEventListener('click', async event => {
     setBusy(button, false);
   }
 });
-$('#prepare-button').addEventListener('click', async event => {
-  const button = event.currentTarget;
+async function prepareData() {
+  const buttons = [$('#prepare-button'), $('#prepare-after-csv')];
   const hasBase = currentStatus?.estado === 'disponivel';
   if (hasBase && !window.confirm(
     'A preparação reconstruirá a base operacional. As alterações atuais serão mescladas e um backup web será criado antes da operação. Continuar?'
   )) return;
   const body = new FormData();
   if (hasBase) body.append('confirmado', 'sim');
-  setBusy(button, true, 'Preparando…');
+  buttons.forEach(button => setBusy(button, true, 'Preparando…'));
   try {
     const result = await api('/api/preparar', { method: 'POST', body });
     const notices = [
@@ -1892,10 +1928,11 @@ $('#prepare-button').addEventListener('click', async event => {
   } catch (error) {
     notify(error.message, 'error');
   } finally {
-    setBusy(button, false);
+    buttons.forEach(button => setBusy(button, false));
   }
-});
-$('#prepare-after-csv').addEventListener('click', () => $('#prepare-button').click());
+}
+$('#prepare-button').addEventListener('click', prepareData);
+$('#prepare-after-csv').addEventListener('click', prepareData);
 
 $('#edit-status').addEventListener('change', event => stateFromStatus(event.target.value, $('#edit-state')));
 $('#edit-form').addEventListener('submit', async event => {

@@ -10,6 +10,7 @@ from flask import (
     jsonify,
     request,
 )
+from dados_patrimoniais import enriquecer_com_dados_patrimoniais
 from pathlib import (
     Path,
 )
@@ -66,12 +67,13 @@ def conferencia():
     dados = dados[dados['Setor Atual'].astype(str).str.strip() == setor].copy()
     total = len(dados)
     pagina, por_pagina, inicio, fim = _pagina_requisitada(total)
+    itens = enriquecer_com_dados_patrimoniais(dados.iloc[inicio:fim])
     return jsonify(
         setor=setor,
         total=total,
         pagina=pagina,
         por_pagina=por_pagina,
-        itens=_registros_json(dados.iloc[inicio:fim]),
+        itens=_registros_json(itens),
     )
 
 @blueprint.get('/api/busca')
@@ -99,11 +101,12 @@ def busca():
         abort(400, description='Informe as datas usando um período válido.')
     total = len(filtrados)
     pagina, por_pagina, inicio, fim = _pagina_requisitada(total)
+    itens = enriquecer_com_dados_patrimoniais(filtrados.iloc[inicio:fim])
     return jsonify(
         total=total,
         pagina=pagina,
         por_pagina=por_pagina,
-        itens=_registros_json(filtrados.iloc[inicio:fim]),
+        itens=_registros_json(itens),
     )
 
 
