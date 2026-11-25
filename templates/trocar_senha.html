@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alterar senha · Gestão de Inventário Patrimonial</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=30">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Acesso protegido</p>
+      <h1>Alterar senha</h1>
+      <p class="subtitle">Usuário: {{ g.usuario_atual.nome_usuario }}</p>
+    </div>
+  </header>
+  <main class="auth-main">
+    <section class="card auth-card">
+      <h2>{{ 'Crie sua senha pessoal' if obrigatoria else 'Atualize sua senha' }}</h2>
+      {% if obrigatoria %}
+      <p>A senha temporária precisa ser trocada antes de usar o sistema.</p>
+      {% endif %}
+      {% if erro %}
+      <p class="error-text" role="alert">{{ erro }}</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('autenticacao.trocar_senha') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label for="senha-atual">Senha atual</label>
+        <input id="senha-atual" name="senha_atual" type="password" autocomplete="current-password" required>
+        <label for="senha-nova">Nova senha (mínimo 12 caracteres)</label>
+        <input id="senha-nova" name="senha_nova" type="password" minlength="12" maxlength="256" autocomplete="new-password" required>
+        <label for="confirmar-senha">Confirme a nova senha</label>
+        <input id="confirmar-senha" name="confirmar_senha" type="password" minlength="12" maxlength="256" autocomplete="new-password" required>
+        <button class="button button-primary full-width" type="submit">Salvar senha</button>
+      </form>
+      <form method="post" action="{{ url_for('autenticacao.logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="button button-muted full-width" type="submit">Sair</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

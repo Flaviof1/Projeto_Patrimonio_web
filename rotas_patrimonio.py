@@ -7,10 +7,15 @@ from constantes import (
 )
 from flask import (
     abort,
+    g,
     jsonify,
     request,
 )
 from dados_patrimoniais import enriquecer_com_dados_patrimoniais
+from autenticacao import (
+    requer_administrador,
+    requer_permissao,
+)
 from pathlib import (
     Path,
 )
@@ -111,6 +116,7 @@ def busca():
 
 
 @blueprint.post('/api/conferencia/incluir')
+@requer_administrador
 @_csrf_required
 def incluir_item():
     dados = request.get_json(silent=True)
@@ -164,11 +170,16 @@ def incluir_item():
     return jsonify(mensagem=f'{quantidade} bem(ns) incluído(s).', total=len(base))
 
 @blueprint.post('/api/itens/<int:indice>/editar')
+@requer_permissao('conferencia:registrar')
 @_csrf_required
 def editar_item(indice):
     alteracoes = request.get_json(silent=True)
     if not isinstance(alteracoes, dict):
         abort(400, description='Dados de edição inválidos.')
+    if g.usuario_atual['funcao'] != 'admin':
+        campos_permitidos = {'status', 'estado', 'observacao'}
+        if set(alteracoes).difference(campos_permitidos):
+            abort(403, description='Você só pode registrar dados da conferência.')
     try:
         dados = _carregar_base()
     except ValueError as error:
@@ -180,6 +191,7 @@ def editar_item(indice):
     return jsonify(mensagem='Conferência salva.')
 
 @blueprint.post('/api/itens/excluir-lote')
+@requer_administrador
 @_csrf_required
 def excluir_itens_em_lote():
     payload = request.get_json(silent=True)
@@ -206,8 +218,16 @@ def excluir_itens_em_lote():
     return jsonify(mensagem=f'{len(indices)} item(ns) excluído(s) da base patrimonial.')
 
 @blueprint.post('/api/itens/<int:indice>/foto')
+@requer_permissao('conferencia:registrar')
 @_csrf_required
 def atualizar_foto(indice):
+    if g.usuario_atual['funcao'] != 'admin':
+        campos_permitidos = {'status', 'estado', 'observacao'}
+        if (
+            set(request.form).difference(campos_permitidos)
+            or request.form.get('remover') == 'sim'
+        ):
+            abort(403, description='Você pode registrar a conferência, mas não remover fotos.')
     try:
         dados = _carregar_base()
     except ValueError as error:

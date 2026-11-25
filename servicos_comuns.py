@@ -16,6 +16,9 @@ from functools import (
 from pathlib import (
     Path,
 )
+from secrets import (
+    compare_digest,
+)
 from paths import (
     DATA_DIR,
 )
@@ -92,13 +95,17 @@ def _temp_upload(upload, extensao_esperada):
         raise
     return caminho
 
+def _validar_csrf():
+    token = session.get('csrf_token')
+    enviado = request.headers.get('X-CSRF-Token') or request.form.get('csrf_token')
+    if not token or not enviado or not compare_digest(str(token), str(enviado)):
+        abort(400, description='Sessão inválida. Atualize a página e tente novamente.')
+
+
 def _csrf_required(funcao):
     @wraps(funcao)
     def validar_csrf(*args, **kwargs):
-        token = session.get('csrf_token')
-        enviado = request.headers.get('X-CSRF-Token')
-        if not token or not enviado or token != enviado:
-            abort(400, description='Sessão inválida. Atualize a página e tente novamente.')
+        _validar_csrf()
         return funcao(*args, **kwargs)
     return validar_csrf
 

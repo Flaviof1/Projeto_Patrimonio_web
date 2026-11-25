@@ -23,6 +23,7 @@ from datetime import (
 from flask import (
     abort,
     jsonify,
+    g,
     render_template,
     request,
     send_file,
@@ -74,6 +75,7 @@ from servicos_operacoes import (
     _salvar_planilha,
     _sincronizar_mysql_com_planilha,
 )
+from autenticacao import requer_administrador
 from servicos_patrimonio import (
     EXTENSOES_IMAGEM,
     PHOTO_MIME_TYPES,
@@ -91,7 +93,11 @@ blueprint = Blueprint('operacoes', __name__)
 @blueprint.get('/')
 def index():
     session.setdefault('csrf_token', token_urlsafe(32))
-    return render_template('index.html', csrf_token=session['csrf_token'])
+    return render_template(
+        'index.html',
+        csrf_token=session['csrf_token'],
+        usuario_atual=g.usuario_atual,
+    )
 
 @blueprint.get('/api/status')
 def status():
@@ -109,6 +115,7 @@ def status():
         ), 409
 
 @blueprint.post('/api/importar/csv')
+@requer_administrador
 @_csrf_required
 def importar_csv():
     arquivo_destino = DADOS_ENTRADA_DIR / 'Localizar_Bens.csv'
@@ -127,6 +134,7 @@ def importar_csv():
     return jsonify(mensagem='CSV validado e importado.', registros=total, arquivo=Path(destino).name)
 
 @blueprint.post('/api/importar/resultado')
+@requer_administrador
 @_csrf_required
 def importar_resultado():
     temporario = _temp_upload(
@@ -202,6 +210,7 @@ def importar_resultado():
         temporario.unlink(missing_ok=True)
 
 @blueprint.post('/api/importar/auxiliar')
+@requer_administrador
 @_csrf_required
 def importar_auxiliar():
     tipo = request.form.get('tipo', '')
@@ -238,6 +247,7 @@ def importar_auxiliar():
     return jsonify(mensagem=f'{nome} validado e importado.', arquivo=nome)
 
 @blueprint.post('/api/preparar')
+@requer_administrador
 @_csrf_required
 def preparar():
     csv = DADOS_ENTRADA_DIR / 'Localizar_Bens.csv'
@@ -394,12 +404,14 @@ def baixar_relatorio(nome):
     return send_from_directory(RELATORIOS_DIR, nome_seguro, as_attachment=True)
 
 @blueprint.post('/api/backups')
+@requer_administrador
 @_csrf_required
 def criar_backup():
     caminho = _criar_backup_web()
     return jsonify(mensagem='Backup criado.', arquivo=caminho.name)
 
 @blueprint.get('/api/backups')
+@requer_administrador
 def listar_backups():
     BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
     backups = []
@@ -415,12 +427,14 @@ def listar_backups():
     return jsonify(backups=backups)
 
 @blueprint.get('/api/backups/<path:nome>')
+@requer_administrador
 def baixar_backup(nome):
     if secure_filename(nome) != nome:
         abort(404, description='Backup não encontrado.')
     return send_from_directory(BACKUPS_DIR, nome, as_attachment=True)
 
 @blueprint.post('/api/backups/<path:nome>/restaurar')
+@requer_administrador
 @_csrf_required
 def restaurar_backup_web(nome):
     if secure_filename(nome) != nome:

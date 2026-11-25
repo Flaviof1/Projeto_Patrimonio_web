@@ -6,18 +6,26 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Gestão de Inventário Patrimonial</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=29">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=30">
 </head>
-<body>
+<body class="role-{{ usuario_atual.funcao }}" data-user-role="{{ usuario_atual.funcao }}">
   <header class="topbar">
     <div>
-      <p class="eyebrow">Aplicação local</p>
+      <p class="eyebrow">Acesso autenticado</p>
       <h1>Gestão de Inventário Patrimonial</h1>
       <p class="subtitle">Conferência por setor, consulta de bens e pendências.</p>
     </div>
     <div class="topbar-brand">
       <img src="{{ url_for('static', filename='f3-tecnologia.svg') }}" alt="F3 Tecnologia">
-      <span class="local-pill">Somente neste computador</span>
+      <span class="local-pill">Sessão protegida</span>
+      <span class="user-pill">{{ usuario_atual.nome_usuario }} · {{ 'Administrador' if usuario_atual.funcao == 'admin' else 'Operador' }}</span>
+      <div class="user-actions">
+        <a href="{{ url_for('autenticacao.trocar_senha') }}">Alterar senha</a>
+        <form method="post" action="{{ url_for('autenticacao.logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit">Sair</button>
+        </form>
+      </div>
     </div>
   </header>
 
@@ -49,12 +57,12 @@
             </span>
           </summary>
           <p>Selecione o CSV SH3. A validação ocorre antes de substituir qualquer arquivo já importado.</p>
-          <form id="csv-form" class="upload-form">
+          <form id="csv-form" class="upload-form admin-only">
             <label for="csv-file">Cadastro patrimonial (CSV)</label>
             <input id="csv-file" name="arquivo" type="file" accept=".csv,text/csv" required>
             <button class="button button-primary" type="submit">Validar e importar CSV</button>
           </form>
-          <div id="csv-import-followup" class="csv-import-followup" role="status" hidden>
+          <div id="csv-import-followup" class="csv-import-followup admin-only" role="status" hidden>
             <p>CSV importado. Para atualizar os itens, pendências e a data da preparação, prepare os dados agora.</p>
             <button id="prepare-after-csv" class="button button-primary" type="button">Preparar Dados (SH3) agora</button>
           </div>
@@ -69,18 +77,18 @@
             </span>
           </summary>
           <p>Importe somente as fontes que utiliza. A preparação informa quando alguma delas não foi fornecida.</p>
-          <form id="alienados-form" class="upload-form compact-form">
+          <form id="alienados-form" class="upload-form compact-form admin-only">
             <label for="alienados-file">Bens alienados (Excel)</label>
             <input id="alienados-file" name="arquivo" type="file" accept=".xlsx" required>
             <button class="button button-secondary" type="submit">Importar planilha Excel</button>
           </form>
-          <form id="baixados-form" class="upload-form compact-form">
+          <form id="baixados-form" class="upload-form compact-form admin-only">
             <label for="baixados-file">Bens baixados (Excel)</label>
             <input id="baixados-file" name="arquivo" type="file" accept=".xlsx" required>
             <p class="muted">A planilha deve ter uma coluna Plaqueta. Ao preparar os dados, os bens do cadastro listados aqui serão marcados automaticamente como BAIXA.</p>
             <button class="button button-secondary" type="submit">Importar planilha Excel</button>
           </form>
-          <button id="prepare-button" class="button button-primary full-width" type="button">Preparar Dados (SH3)</button>
+          <button id="prepare-button" class="button button-primary full-width admin-only" type="button">Preparar Dados (SH3)</button>
         </details>
       </article>
     </section>
@@ -96,14 +104,14 @@
             <span id="auction-summary" class="auction-summary">Carregando itens…</span>
           </summary>
           <p>Crie lotes e escolha um deles ao importar ou incluir itens; se preferir, deixe itens disponíveis para organizar depois. A numeração é automática e acompanha a ordem dos lotes; informe apenas o nome, sem o número. Use as ações no cabeçalho de cada lote para renomear, reordenar ou excluir. Para excluir um lote com itens, mova ou remova os itens primeiro. Na importação, o sistema analisa as plaquetas e sugere setores; revise e aprove as sugestões antes de importar. Itens sem plaqueta ou sem correspondência ficam como estão. Para excluir vários itens da lista de leilão, marque as caixas “Selecionar” e use “Excluir selecionados”; o sistema pedirá confirmação. Remover do lote mantém o item disponível; “Excluir da lista” remove somente o item da lista de leilão, sem alterar o cadastro patrimonial.</p>
-          <form id="auction-lot-form" class="inline-form auction-lot-form">
+          <form id="auction-lot-form" class="inline-form auction-lot-form admin-only">
             <label for="auction-lot-name">Nome do novo lote (numeração automática)</label>
             <input id="auction-lot-name" maxlength="80" required>
             <label for="auction-lot-value">Valor do lote em R$ (opcional)</label>
             <input id="auction-lot-value" type="number" min="0" step="0.01" inputmode="decimal">
             <button class="button button-secondary" type="submit">Criar lote</button>
           </form>
-          <div class="auction-import-forms">
+          <div class="auction-import-forms admin-only">
             <form id="auction-xlsx-form" class="upload-form compact-form">
               <label for="auction-xlsx-file">Lista de leilão (Excel)</label>
               <input id="auction-xlsx-file" type="file" accept=".xlsx" required>
@@ -121,7 +129,7 @@
               <div class="auction-import-preview" hidden aria-live="polite"></div>
             </form>
           </div>
-          <form id="auction-manual-form" class="filter-grid auction-manual-form">
+          <form id="auction-manual-form" class="filter-grid auction-manual-form admin-only">
             <div>
               <label for="auction-description">Descrição do item</label>
               <input id="auction-description" maxlength="500" required>
@@ -199,11 +207,11 @@
           <div id="conference-summary" class="muted"></div>
           <p class="data-deletion-warning" role="note">Atenção: excluir da planilha principal remove registros da base patrimonial e pode causar danos graves ou perda de dados no sistema. Use apenas se tiver certeza.</p>
           <div class="search-actions">
-            <button id="delete-selected-conference-items" class="button button-muted" type="button" disabled>Excluir da planilha principal</button>
+            <button id="delete-selected-conference-items" class="button button-muted admin-only" type="button" disabled>Excluir da planilha principal</button>
           </div>
           <div id="conference-table" class="table-wrap conference-table"></div>
           <div id="conference-pagination" class="table-pagination"></div>
-          <button id="add-item-button" class="button button-secondary" type="button" hidden>Incluir bem localizado sem plaqueta</button>
+          <button id="add-item-button" class="button button-secondary admin-only" type="button" hidden>Incluir bem localizado sem plaqueta</button>
         </details>
       </article>
     </section>
@@ -290,7 +298,7 @@
           <div id="search-summary" class="muted"></div>
           <p class="data-deletion-warning" role="note">Atenção: excluir da planilha principal remove registros da base patrimonial e pode causar danos graves ou perda de dados no sistema. Use apenas se tiver certeza.</p>
           <div class="search-actions">
-            <button id="delete-selected-search-items" class="button button-muted" type="button" disabled>Excluir da planilha principal</button>
+            <button id="delete-selected-search-items" class="button button-muted admin-only" type="button" disabled>Excluir da planilha principal</button>
             <button id="search-excel-button" class="button button-secondary" type="button" disabled>Gerar relatório Excel</button>
             <button id="search-pdf-button" class="button button-secondary" type="button" disabled>Gerar relatório PDF</button>
             <div id="search-report-result" class="result-message"></div>
@@ -315,7 +323,7 @@
           <div id="report-result" class="result-message"></div>
         </details>
       </article>
-      <article class="card">
+      <article class="card admin-only">
         <details class="work-disclosure">
           <summary>
             <span>
@@ -329,6 +337,33 @@
         </details>
       </article>
     </section>
+    {% if usuario_atual.funcao == 'admin' %}
+    <section class="grid">
+      <article class="card">
+        <details class="work-disclosure">
+          <summary>
+            <span>
+              <span class="eyebrow">Acesso</span>
+              <span class="work-title">Gerenciar usuários</span>
+            </span>
+          </summary>
+          <p>Crie contas de consulta e conferência. Cada pessoa definirá sua própria senha no primeiro acesso.</p>
+          <form id="user-create-form" class="filter-grid">
+            <div>
+              <label for="new-username">Nome de usuário</label>
+              <input id="new-username" minlength="3" maxlength="50" pattern="[A-Za-z0-9._-]+" required>
+            </div>
+            <div>
+              <label for="new-user-password">Senha temporária (mínimo 12 caracteres)</label>
+              <input id="new-user-password" type="password" minlength="12" maxlength="256" autocomplete="new-password" required>
+            </div>
+            <button class="button button-primary" type="submit">Criar usuário</button>
+          </form>
+          <div id="user-list" class="backup-list"></div>
+        </details>
+      </article>
+    </section>
+    {% endif %}
     <div id="notifications" class="notifications" role="status" aria-live="polite"></div>
   </main>
 
@@ -340,12 +375,14 @@
       </div>
       <p id="edit-identification" class="muted"></p>
       <input id="edit-index" type="hidden">
-      <div id="description-field">
+      <div id="description-field" class="admin-only">
         <label for="edit-description">Descrição</label>
         <input id="edit-description" maxlength="500">
       </div>
-      <label for="edit-value">Valor por item em R$ (opcional)</label>
-      <input id="edit-value" type="number" min="0" step="0.01" inputmode="decimal">
+      <div class="admin-only">
+        <label for="edit-value">Valor por item em R$ (opcional)</label>
+        <input id="edit-value" type="number" min="0" step="0.01" inputmode="decimal">
+      </div>
       <div class="filter-grid">
         <div>
           <label for="edit-status">Status</label>
@@ -368,7 +405,7 @@
       <div id="photo-current" class="photo-current"></div>
       <label for="edit-photo">Anexar ou trocar foto</label>
       <input id="edit-photo" type="file" accept=".jpg,.jpeg,.png,.bmp,.gif,.webp,image/*">
-      <p class="muted">Ao salvar a foto, as alterações de status, estado, observação e valor também serão gravadas.</p>
+      <p class="muted">Ao salvar, as alterações de conferência permitidas para sua conta serão gravadas.</p>
       <div class="modal-actions">
         <button class="button button-primary" type="submit">Salvar conferência</button>
         <button id="save-photo" class="button button-secondary" type="button">Salvar foto e alterações</button>
@@ -443,6 +480,6 @@
     </form>
   </dialog>
 
-  <script src="{{ url_for('static', filename='app.js') }}?v=34" defer></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v=35" defer></script>
 </body>
 </html>

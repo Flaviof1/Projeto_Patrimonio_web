@@ -1,5 +1,6 @@
 const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 const statusUrl = '/api/status';
+const isAdmin = document.body.dataset.userRole === 'admin';
 let currentStatus = null;
 let currentView = { type: 'none' };
 let lastSearchCount = 0;
@@ -38,6 +39,10 @@ async function api(url, options = {}) {
     config.body = JSON.stringify(config.body);
   }
   const response = await fetch(url, config);
+  if (response.status === 401) {
+    window.location.assign('/login');
+    throw new Error('Sua sessão expirou. Entre novamente.');
+  }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(payload.error || `Falha na solicitação (${response.status}).`);
@@ -250,7 +255,8 @@ function makeTable(container, items) {
   const actionHeading = document.createElement('th');
   actionHeading.textContent = 'Ação';
   heading.append(actionHeading);
-  const selectionEnabled = currentView.type === 'search' || currentView.type === 'sector';
+  const selectionEnabled = isAdmin
+    && (currentView.type === 'search' || currentView.type === 'sector');
   const selectedItems = currentView.type === 'sector'
     ? selectedConferenceItems
     : selectedSearchItems;
@@ -666,7 +672,7 @@ function openEdit(item) {
   $('#edit-value').value = item.Valor || '';
   $('#edit-photo').value = '';
   const identifier = String(item['Identificador Provisório'] || '');
-  const canEditDescription = identifier.startsWith('SEM-ID-')
+  const canEditDescription = isAdmin && identifier.startsWith('SEM-ID-')
     && !identifier.startsWith('SEM-ID-ODS-');
   $('#description-field').hidden = !canEditDescription;
   $('#edit-description').value = item['Descrição'] || '';
@@ -681,12 +687,14 @@ function openEdit(item) {
     image.alt = 'Foto anexada ao bem';
     image.onerror = () => { image.replaceWith(document.createTextNode('Arquivo de foto não encontrado.')); };
     photo.append(image);
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'button button-muted table-action';
-    remove.textContent = 'Remover foto';
-    remove.addEventListener('click', () => savePhoto(true));
-    photo.append(remove);
+    if (isAdmin) {
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'button button-muted table-action';
+      remove.textContent = 'Remover foto';
+      remove.addEventListener('click', () => savePhoto(true));
+      photo.append(remove);
+    }
   } else {
     photo.textContent = 'Nenhuma foto anexada.';
   }
@@ -709,8 +717,8 @@ async function savePhoto(remove = false) {
   form.append('status', $('#edit-status').value);
   form.append('estado', $('#edit-state').value);
   form.append('observacao', $('#edit-observation').value);
-  form.append('valor', $('#edit-value').value);
-  if (!$('#description-field').hidden) {
+  if (isAdmin) form.append('valor', $('#edit-value').value);
+  if (isAdmin && !$('#description-field').hidden) {
     form.append('descricao', $('#edit-description').value);
   }
   try {
@@ -1143,7 +1151,7 @@ function renderAuctionList(items, lots) {
       return;
     }
   }
-  if (itensDaPagina.length) {
+  if (isAdmin && itensDaPagina.length) {
     const bulkActions = document.createElement('div');
     bulkActions.className = 'search-actions';
     const selectAllButton = createAuctionButton(
@@ -1186,7 +1194,7 @@ function renderAuctionList(items, lots) {
       : `Valor calculado do lote: ${formatAuctionValue(lot.valor_calculado)}`;
     title.append(document.createElement('br'), lotValue);
     const controls = document.createElement('div');
-    controls.className = 'auction-row-actions';
+    controls.className = 'auction-row-actions admin-only';
     controls.append(
       createAuctionButton('Editar', () => renameAuctionLot(lot)),
       createAuctionButton('↑', () => reorderAuctionLot(lots, index, -1), 'button button-muted auction-order-button'),
@@ -1284,6 +1292,14 @@ function appendAuctionItemsTable(container, items, lots) {
   ['Selecionar', 'Descrição', 'Plaqueta informada', 'Setor', 'Data', 'Valor', 'Observação', 'Situação', 'Organizar em lote', 'Vincular ao patrimônio', 'Ações'].forEach(text => {
     const cell = document.createElement('th');
     cell.textContent = text;
+    if (!isAdmin && [
+      'Selecionar',
+      'Organizar em lote',
+      'Vincular ao patrimônio',
+      'Ações',
+    ].includes(text)) {
+      cell.className = 'admin-only';
+    }
     header.append(cell);
   });
   const thead = document.createElement('thead');
@@ -1294,6 +1310,7 @@ function appendAuctionItemsTable(container, items, lots) {
   items.forEach(item => {
     const row = document.createElement('tr');
     const selectionCell = document.createElement('td');
+    selectionCell.className = 'admin-only';
     selectionCell.dataset.label = 'Selecionar';
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -1331,6 +1348,7 @@ function appendAuctionItemsTable(container, items, lots) {
     row.append(status);
 
     const organizeCell = document.createElement('td');
+    organizeCell.className = 'admin-only';
     organizeCell.dataset.label = 'Organizar em lote';
     const organizeControls = document.createElement('div');
     organizeControls.className = 'auction-link-controls';
@@ -1366,6 +1384,7 @@ function appendAuctionItemsTable(container, items, lots) {
     row.append(organizeCell);
 
     const linkAction = document.createElement('td');
+    linkAction.className = 'admin-only';
     linkAction.dataset.label = 'Vincular ao patrimônio';
     if (item.situacao !== 'IDENTIFICADO') {
       const field = document.createElement('div');
@@ -1391,6 +1410,7 @@ function appendAuctionItemsTable(container, items, lots) {
     row.append(linkAction);
 
     const action = document.createElement('td');
+    action.className = 'admin-only';
     action.dataset.label = 'Ações';
     const controls = document.createElement('div');
     controls.className = 'auction-row-actions';
@@ -1727,6 +1747,80 @@ async function restoreBackup(filename) {
   }
 }
 
+async function loadManagedUsers() {
+  const list = $('#user-list');
+  if (!list) return;
+  try {
+    const data = await api('/api/admin/usuarios');
+    list.replaceChildren();
+    if (!data.usuarios.length) {
+      list.textContent = 'Nenhum usuário operador cadastrado.';
+      return;
+    }
+    data.usuarios.forEach(user => {
+      const row = document.createElement('div');
+      row.className = 'backup-row';
+      const info = document.createElement('span');
+      info.textContent = `${user.nome_usuario} · ${user.ativo ? 'Ativo' : 'Desativado'}`
+        + (user.trocar_senha ? ' · aguardando troca de senha' : '');
+      const actions = document.createElement('div');
+      actions.className = 'backup-actions';
+      const reset = document.createElement('button');
+      reset.type = 'button';
+      reset.className = 'button button-muted table-action';
+      reset.textContent = 'Redefinir senha';
+      reset.addEventListener('click', async () => {
+        const password = window.prompt('Informe uma senha temporária (mínimo 12 caracteres):');
+        if (password === null) return;
+        const confirmation = window.prompt('Digite novamente para confirmar:');
+        if (password !== confirmation) {
+          notify('As senhas temporárias não conferem.', 'error');
+          return;
+        }
+        setBusy(reset, true, 'Salvando…');
+        try {
+          const result = await api(`/api/admin/usuarios/${user.id}/senha`, {
+            method: 'POST',
+            body: { senha_temporaria: password },
+          });
+          notify(result.mensagem);
+          await loadManagedUsers();
+        } catch (error) {
+          notify(error.message, 'error');
+        } finally {
+          setBusy(reset, false);
+        }
+      });
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = `button ${user.ativo ? 'button-warning' : 'button-secondary'} table-action`;
+      toggle.textContent = user.ativo ? 'Desativar' : 'Reativar';
+      toggle.addEventListener('click', async () => {
+        const action = user.ativo ? 'desativar' : 'reativar';
+        if (!window.confirm(`Deseja ${action} a conta de ${user.nome_usuario}?`)) return;
+        setBusy(toggle, true, 'Salvando…');
+        try {
+          const result = await api(`/api/admin/usuarios/${user.id}/estado`, {
+            method: 'POST',
+            body: { ativo: !user.ativo },
+          });
+          notify(result.mensagem);
+          await loadManagedUsers();
+        } catch (error) {
+          notify(error.message, 'error');
+        } finally {
+          setBusy(toggle, false);
+        }
+      });
+      actions.append(reset, toggle);
+      row.append(info, actions);
+      list.append(row);
+    });
+  } catch (error) {
+    notify(`Não foi possível carregar os usuários: ${error.message}`, 'error');
+  }
+}
+
 $('#csv-form').addEventListener('submit', event => {
   event.preventDefault();
   sendUpload(event.currentTarget, '/api/importar/csv');
@@ -1933,6 +2027,31 @@ async function prepareData() {
 }
 $('#prepare-button').addEventListener('click', prepareData);
 $('#prepare-after-csv').addEventListener('click', prepareData);
+const userCreateForm = $('#user-create-form');
+if (userCreateForm) {
+  userCreateForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = userCreateForm.querySelector('button[type="submit"]');
+    setBusy(button, true, 'Criando…');
+    try {
+      const result = await api('/api/admin/usuarios', {
+        method: 'POST',
+        body: {
+          nome_usuario: $('#new-username').value,
+          senha_temporaria: $('#new-user-password').value,
+        },
+      });
+      userCreateForm.reset();
+      notify(result.mensagem);
+      await loadManagedUsers();
+    } catch (error) {
+      notify(error.message, 'error');
+    } finally {
+      setBusy(button, false);
+    }
+  });
+  loadManagedUsers();
+}
 
 $('#edit-status').addEventListener('change', event => stateFromStatus(event.target.value, $('#edit-state')));
 $('#edit-form').addEventListener('submit', async event => {
@@ -1942,9 +2061,11 @@ $('#edit-form').addEventListener('submit', async event => {
     status: $('#edit-status').value,
     estado: $('#edit-state').value,
     observacao: $('#edit-observation').value,
-    valor: $('#edit-value').value,
   };
-  if (!$('#description-field').hidden) body.descricao = $('#edit-description').value;
+  if (isAdmin) body.valor = $('#edit-value').value;
+  if (isAdmin && !$('#description-field').hidden) {
+    body.descricao = $('#edit-description').value;
+  }
   try {
     const result = await api(`/api/itens/${index}/editar`, { method: 'POST', body });
     $('#edit-dialog').close();
@@ -1989,6 +2110,6 @@ function invalidateSearch() {
 }
 
 loadStatus();
-loadBackups();
+if (isAdmin) loadBackups();
 loadAuctionList();
 updateSearchFilterIndicators();

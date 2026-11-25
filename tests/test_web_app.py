@@ -17,6 +17,11 @@ from PIL import Image
 from openpyxl import load_workbook
 
 from app import app
+from autenticacao import (
+    AUTH_DATABASE,
+    criar_usuario,
+    inicializar_armazenamento_autenticacao,
+)
 import rotas_leilao as leilao_routes
 import rotas_patrimonio as patrimonio_routes
 import servicos_comuns
@@ -49,21 +54,48 @@ def limpar_dados():
         caminho = DATA_DIR / pasta
         if caminho.exists():
             shutil.rmtree(caminho)
+    if AUTH_DATABASE.exists():
+        AUTH_DATABASE.unlink()
+    inicializar_armazenamento_autenticacao()
     yield
 
 
 @pytest.fixture
 def client():
+    criar_usuario(
+        'admin-teste',
+        'senha-temporaria-teste',
+        funcao='admin',
+    )
     with app.test_client() as cliente:
-        cliente.get('/')
-        with cliente.session_transaction() as sessao:
-            sessao['csrf_token'] = 'token-de-teste'
+        login(cliente, 'admin-teste', 'senha-temporaria-teste')
         yield cliente
+
+
+@pytest.fixture
+def anonymous_client():
+    with app.test_client() as cliente:
+        yield cliente
+
+
+def login(client, username, password):
+    client.get('/login')
+    with client.session_transaction() as sessao:
+        token = sessao['csrf_token']
+    return client.post(
+        '/login',
+        data={
+            'nome_usuario': username,
+            'senha': password,
+            'csrf_token': token,
+        },
+    )
 
 
 def post(client, url, **kwargs):
     headers = kwargs.pop('headers', {})
-    headers['X-CSRF-Token'] = 'token-de-teste'
+    with client.session_transaction() as sessao:
+        headers['X-CSRF-Token'] = sessao['csrf_token']
     return client.post(url, headers=headers, **kwargs)
 
 
@@ -155,6 +187,108 @@ def test_aplicacao_inicia_sem_abrir_dados_do_desktop(client):
     assert not (
         DATA_DIR / 'dados_trabalho'
     ).joinpath('conferencia_resultado.xlsx').exists()
+
+
+def test_paginas_e_api_exigem_login(anonymous_client):
+    pagina = anonymous_client.get('/')
+    assert pagina.status_code == 302
+    assert pagina.headers['Location'].endswith('/login')
+    assert anonymous_client.get('/api/status').status_code == 401
+    assert anonymous_client.get('/login').status_code == 200
+
+
+def test_operador_pode_registrar_conferencia_mas_nao_alterar_cadastro(client):
+    assert preparar_base(client).status_code == 200
+    item = client.get('/api/conferencia?setor=Setor%20A').get_json()['itens'][0]
+    operador = criar_usuario(
+        'operador-teste',
+        'senha-temporaria-operador',
+        funcao='operador',
+        trocar_senha=True,
+    )
+    cliente_operador = app.test_client()
+    resposta_login = login(
+        cliente_operador,
+        operador['nome_usuario'],
+        'senha-temporaria-operador',
+    )
+    assert resposta_login.headers['Location'].endswith('/trocar-senha')
+    with cliente_operador.session_transaction() as sessao:
+        token = sessao['csrf_token']
+    troca_senha = cliente_operador.post(
+        '/trocar-senha',
+        data={
+            'csrf_token': token,
+            'senha_atual': 'senha-temporaria-operador',
+            'senha_nova': 'senha-definitiva-operador',
+            'confirmar_senha': 'senha-definitiva-operador',
+        },
+    )
+    assert troca_senha.status_code == 302
+
+    assert cliente_operador.get('/api/status').status_code == 200
+    registro = post(
+        cliente_operador,
+        f"/api/itens/{item['id']}/editar",
+        json={
+            'status': 'OK',
+            'estado': 'EM USO',
+            'observacao': 'Conferência registrada',
+        },
+    )
+    assert registro.status_code == 200
+    alteracao_cadastro = post(
+        cliente_operador,
+        f"/api/itens/{item['id']}/editar",
+        json={
+            'status': 'OK',
+            'estado': 'EM USO',
+            'observacao': 'Conferência registrada',
+            'valor': '99,00',
+        },
+    )
+    assert alteracao_cadastro.status_code == 403
+    assert post(
+        cliente_operador,
+        '/api/itens/excluir-lote',
+        json={'ids': [item['id']]},
+    ).status_code == 403
+    assert post(cliente_operador, '/api/preparar', data={}).status_code == 403
+    assert post(
+        cliente_operador,
+        '/api/conferencia/incluir',
+        json={'setor': 'Setor A', 'descricao': 'Novo bem'},
+    ).status_code == 403
+    assert post(
+        cliente_operador,
+        '/api/leilao/manual',
+        json={'descricao': 'Item de leilão'},
+    ).status_code == 403
+    assert cliente_operador.get('/api/admin/usuarios').status_code == 403
+    assert cliente_operador.get('/api/backups').status_code == 403
+
+
+def test_administrador_pode_criar_e_desativar_contas_operadoras(client):
+    criado = post(
+        client,
+        '/api/admin/usuarios',
+        json={
+            'nome_usuario': 'novo-operador',
+            'senha_temporaria': 'senha-temporaria-123',
+        },
+    )
+    assert criado.status_code == 201
+    usuario = criado.get_json()['usuario']
+    assert usuario['trocar_senha'] is True
+    assert 'senha_hash' not in usuario
+
+    desativado = post(
+        client,
+        f"/api/admin/usuarios/{usuario['id']}/estado",
+        json={'ativo': False},
+    )
+    assert desativado.status_code == 200
+    assert desativado.get_json()['usuario']['ativo'] is False
 
 
 def test_modo_mysql_usa_a_mesma_camada_de_leitura_e_gravacao(client, monkeypatch):

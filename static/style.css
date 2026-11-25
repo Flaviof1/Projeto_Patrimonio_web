@@ -62,6 +62,25 @@ body {
   color: #eff6ff;
   font-size: .82rem;
 }
+.user-pill { color: #eff6ff; font-size: .88rem; font-weight: 700; }
+.user-actions { display: flex; align-items: center; gap: 12px; }
+.user-actions a,
+.user-actions button {
+  padding: 6px 10px;
+  border: 1px solid #ffffff75;
+  border-radius: 7px;
+  color: #fff;
+  background: transparent;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+}
+.user-actions form { margin: 0; }
+.role-operador .admin-only { display: none !important; }
+.auth-main { width: min(520px, 100%); }
+.auth-card { margin-top: 8vh; }
 
 main {
   width: min(1440px, 100%);
@@ -387,6 +406,9 @@ td[data-field="Valor"] { white-space: nowrap; font-variant-numeric: tabular-nums
   .topbar h1 { max-width: 18ch; font-size: clamp(1.5rem, 7vw, 1.9rem); }
   .topbar-brand { align-self: stretch; justify-items: end; gap: 8px; }
   .topbar-brand img { width: 142px; }
+  .user-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .auth-main { padding-top: 12px; }
+  .auth-card { margin-top: 4vh; }
   main { width: 100%; padding: 12px max(12px, env(safe-area-inset-right)) 20px max(12px, env(safe-area-inset-left)); }
   .grid { gap: 12px; margin-top: 12px; }
   .card,

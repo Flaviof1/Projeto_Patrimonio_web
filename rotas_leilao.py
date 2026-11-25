@@ -9,6 +9,7 @@ from flask import (
     request,
     send_file,
 )
+from autenticacao import requer_administrador
 from io import (
     BytesIO,
 )
@@ -184,6 +185,7 @@ def exportar_itens_leilao():
     )
 
 @blueprint.post('/api/leilao/lotes')
+@requer_administrador
 @_csrf_required
 def criar_lote_leilao():
     dados = request.get_json(silent=True)
@@ -218,6 +220,7 @@ def criar_lote_leilao():
     )
 
 @blueprint.post('/api/leilao/lotes/reordenar')
+@requer_administrador
 @_csrf_required
 def reordenar_lotes_leilao():
     dados = request.get_json(silent=True)
@@ -240,6 +243,7 @@ def reordenar_lotes_leilao():
     return jsonify(mensagem='Ordem dos lotes atualizada.', lotes=_lotes_com_numeracao(estado['lotes']))
 
 @blueprint.post('/api/leilao/lotes/<identificador>/editar')
+@requer_administrador
 @_csrf_required
 def editar_lote_leilao(identificador):
     dados = request.get_json(silent=True)
@@ -280,6 +284,7 @@ def editar_lote_leilao(identificador):
     return jsonify(mensagem='Lote atualizado.', lote=lote)
 
 @blueprint.post('/api/leilao/lotes/<identificador>/excluir')
+@requer_administrador
 @_csrf_required
 def excluir_lote_leilao(identificador):
     try:
@@ -346,6 +351,7 @@ def preparar_analise_importacao_leilao():
     return novos, estado, lote_id, analise, token
 
 @blueprint.post('/api/leilao/importar/analisar')
+@requer_administrador
 @_csrf_required
 def analisar_importacao_leilao():
     _, _, _, analise, token = preparar_analise_importacao_leilao()
@@ -356,6 +362,7 @@ def analisar_importacao_leilao():
     )
 
 @blueprint.post('/api/leilao/importar')
+@requer_administrador
 @_csrf_required
 def importar_lista_leilao():
     novos, estado, lote_id, analise, token = preparar_analise_importacao_leilao()
@@ -422,6 +429,7 @@ def importar_lista_leilao():
     )
 
 @blueprint.post('/api/leilao/manual')
+@requer_administrador
 @_csrf_required
 def incluir_item_leilao_manual():
     dados = request.get_json(silent=True)
@@ -488,6 +496,7 @@ def incluir_item_leilao_manual():
     )
 
 @blueprint.post('/api/leilao/<identificador>/editar')
+@requer_administrador
 @_csrf_required
 def editar_item_leilao(identificador):
     alteracoes = request.get_json(silent=True)
@@ -555,6 +564,7 @@ def editar_item_leilao(identificador):
     return jsonify(mensagem='Item da lista de leilão atualizado.', item=item)
 
 @blueprint.post('/api/leilao/<identificador>/excluir')
+@requer_administrador
 @_csrf_required
 def excluir_item_leilao(identificador):
     try:
@@ -588,6 +598,7 @@ def excluir_item_leilao(identificador):
     return jsonify(mensagem='Item removido da lista de leilão.')
 
 @blueprint.post('/api/leilao/excluir-selecionados')
+@requer_administrador
 @_csrf_required
 def excluir_itens_leilao_selecionados():
     dados = request.get_json(silent=True)
@@ -635,6 +646,7 @@ def excluir_itens_leilao_selecionados():
     )
 
 @blueprint.post('/api/leilao/<identificador>/lote')
+@requer_administrador
 @_csrf_required
 def mover_item_leilao(identificador):
     dados = request.get_json(silent=True)
@@ -678,6 +690,7 @@ def mover_item_leilao(identificador):
     return jsonify(mensagem=mensagem, item=item)
 
 @blueprint.post('/api/leilao/<identificador>/vincular')
+@requer_administrador
 @_csrf_required
 def vincular_item_leilao(identificador):
     dados_requisicao = request.get_json(silent=True)

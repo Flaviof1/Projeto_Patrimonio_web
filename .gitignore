@@ -9,6 +9,7 @@ MANUAL_USUARIO.html
 .env
 .env.*
 !.env.example
+.chave_sessao
 *.pem
 *.key
 *.p12
