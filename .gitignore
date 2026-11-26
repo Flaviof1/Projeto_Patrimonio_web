@@ -4,6 +4,7 @@ __pycache__/
 dados_web/
 *.py[cod]
 MANUAL_USUARIO.html
+/docs/manutencao-futura.md
 
 # Configuração local e credenciais
 .env
